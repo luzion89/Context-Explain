@@ -747,7 +747,7 @@ function showTriggerBtn(x, y) {
   explainBtn.addEventListener('click', e => {
     e.stopPropagation();
     const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length < 1) return;
+    if (!sel || sel.toString().trim().length === 0) return;
     const ctx = extractContext(sel);
     removeTriggerBtn();
     showPanel(ctx, x, y, 'explain');
@@ -756,7 +756,7 @@ function showTriggerBtn(x, y) {
   askBtn.addEventListener('click', e => {
     e.stopPropagation();
     const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length < 1) return;
+    if (!sel || sel.toString().trim().length === 0) return;
     const ctx = extractContext(sel);
     removeTriggerBtn();
     showPanel(ctx, x, y, 'ask');
@@ -1393,7 +1393,7 @@ function tryShowFromSelection() {
   if (!sel || sel.rangeCount === 0) return false;
 
   const selectedText = sel.toString().trim();
-  if (selectedText.length < 1) return false;
+  if (selectedText.length === 0) return false;
 
   // Skip editable nodes
   const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
@@ -1430,7 +1430,7 @@ document.addEventListener('mouseup', (e) => {
   if (!tryShowFromSelection()) {
     // Only hide trigger if no text selected (not if it simply failed to show)
     const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length < 1) removeTriggerBtn();
+    if (!sel || sel.toString().trim().length === 0) removeTriggerBtn();
   }
 });
 
@@ -1443,7 +1443,7 @@ document.addEventListener('selectionchange', () => {
     // Only act if mouse is not currently held down (avoid mid-drag flicker)
     if (_mouseIsDown) return;
     const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length < 1) {
+    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length === 0) {
       // Selection was cleared — hide trigger
       removeTriggerBtn();
       return;
