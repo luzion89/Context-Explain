@@ -1385,28 +1385,52 @@ function escHtml(s) {
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 document.addEventListener('mouseup', (e) => {
+  // Ignore clicks inside our own UI
   if (panelRoot && e.composedPath().includes(panelRoot)) return;
   if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
 
+  // Delay so the browser finalises the selection object
   setTimeout(() => {
     const sel = window.getSelection();
-    if (!sel) return;
-    const selectedText = sel.toString().trim();
-    if (selectedText.length < 3 || selectedText.length > 600) { removeTriggerBtn(); return; }
+    if (!sel || sel.rangeCount === 0) return;
 
-    const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE ? sel.anchorNode.parentElement : sel.anchorNode;
-    if (isEditable(anchorEl)) { removeTriggerBtn(); return; }
+    const selectedText = sel.toString().trim();
+
+    // Too short — clear and bail
+    if (selectedText.length < 3) { removeTriggerBtn(); return; }
+
+    // Too long — still show buttons (user can decide), just cap what we send
+    // (removed the > 600 hard bail; context extraction already caps at 600)
+
+    // Check BOTH anchor and focus nodes for editability
+    const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
+      ? sel.anchorNode.parentElement : sel.anchorNode;
+    const focusEl  = sel.focusNode?.nodeType  === Node.TEXT_NODE
+      ? sel.focusNode.parentElement  : sel.focusNode;
+    if (isEditable(anchorEl) || isEditable(focusEl)) { removeTriggerBtn(); return; }
 
     try {
       const range = sel.getRangeAt(0);
-      const rects = range.getClientRects();
-      if (!rects || rects.length === 0) return;
-      const lastRect = rects[rects.length - 1];
+
+      // getClientRects() can return zero-width rects for cross-line spans.
+      // Find the last rect with non-zero width, fall back to getBoundingClientRect.
+      const rects = Array.from(range.getClientRects());
+      let lastRect = null;
+      for (let i = rects.length - 1; i >= 0; i--) {
+        if (rects[i].width > 0) { lastRect = rects[i]; break; }
+      }
+      if (!lastRect) {
+        // Fallback: bounding rect of the whole range
+        lastRect = range.getBoundingClientRect();
+      }
       if (!lastRect || lastRect.width === 0) return;
-      const btnX = lastRect.right + 4;
+
+      const btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
       const btnY = lastRect.top + (lastRect.height - 28) / 2;
       showTriggerBtn(btnX, btnY);
-    } catch (err) {}
+    } catch (err) {
+      // Selection APIs can throw on cross-frame ranges — silently ignore
+    }
   }, 20);
 });
 
@@ -1414,10 +1438,14 @@ document.addEventListener('mousedown', (e) => {
   if (!triggerBtn && !panelRoot) return;
   const path = e.composedPath();
   const onTrigger = triggerBtn && path.includes(triggerBtn);
-  const onPanel = panelRoot && path.includes(panelRoot);
-  // Also allow hover buttons
-  const onHoverBtn = e.target.closest && e.target.closest('.ctx-explain-hover-btn');
-  if (!onTrigger && !onPanel && !onHoverBtn) { removeTriggerBtn(); removePanel(); }
+  const onPanel   = panelRoot  && path.includes(panelRoot);
+  // Check by class name too (hover popup buttons live outside shadow DOM)
+  const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
+  if (!onTrigger && !onPanel && !onHoverPopup) {
+    removeTriggerBtn();
+    // Only close the main panel on outside click — not on every mousedown
+    // (panel is kept open so user can read while re-selecting text)
+  }
 });
 
 document.addEventListener('keydown', (e) => {
