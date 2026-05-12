@@ -152,7 +152,9 @@ function renderHistList(items) {
   }
 
   list.innerHTML = filtered.map(entry => {
-    const preview = (entry.explanation || '').replace(/[#*`>\n]/g, ' ').replace(/\s+/g,' ').trim().slice(0, 100);
+    const previewText = entry.explanation
+      || (entry.followUps && entry.followUps[0] ? `Q: ${entry.followUps[0].q}` : '');
+    const preview = previewText.replace(/[#*`>\n]/g, ' ').replace(/\s+/g,' ').trim().slice(0, 100);
     const fuCount = (entry.followUps || []).length;
     return `<div class="hist-item" data-id="${entry.id}">
       <div class="hist-item-main">
@@ -200,7 +202,10 @@ function showDetail(entry) {
   $('detailDate').textContent = formatTs(entry.ts);
 
   const body = $('detailBody');
-  let html = `<div class="detail-explanation">${mdToSimpleHtml(entry.explanation || '')}</div>`;
+  // explanation is empty for ask-mode entries; followUps holds the Q&A
+  let html = entry.explanation
+    ? `<div class="detail-explanation">${mdToSimpleHtml(entry.explanation)}</div>`
+    : '';
 
   if (entry.followUps && entry.followUps.length > 0) {
     html += `<div class="detail-qa">`;

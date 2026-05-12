@@ -1548,7 +1548,7 @@ function restoreAnnotations() {
   chrome.storage.local.get(['ctxHistory'], (data) => {
     const hist = data.ctxHistory || [];
     // Only entries from this exact URL
-    const pageEntries = hist.filter(e => e.url === pageUrl && e.explanation);
+    const pageEntries = hist.filter(e => e.url === pageUrl && e.term);
     if (pageEntries.length === 0) return;
 
     // Wait for body to be populated (DOMContentLoaded may already have fired)
