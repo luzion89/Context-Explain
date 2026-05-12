@@ -213,6 +213,7 @@ function showDetail(entry) {
 
   html += `<div class="detail-url">From: <a href="${escHtml(entry.url)}" target="_blank">${escHtml(hostnameOf(entry.url))}</a> — ${escHtml(entry.pageTitle || '')}</div>`;
   body.innerHTML = html;
+  renderMermaidIn(body);
 }
 
 function showHistList() {
@@ -269,8 +270,18 @@ function mdToSimpleHtml(text) {
   t = t.replace(/\\\(([^]*?)\\\)/g,       (_, x) => ph(false, x));
   t = t.replace(/(?<![\\$])\$([^$\n]{1,200}?)\$(?!\d)/g, (_, x) => ph(false, x));
 
+  const renderer = new marked.Renderer();
+  renderer.code = ({ text: code, lang }) => {
+    if (lang === 'mermaid') {
+      const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<div class="mermaid-block" data-raw="${escaped}"><div class="mermaid-loading">⟳ Rendering diagram…</div></div>`;
+    }
+    const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11.5px;overflow-x:auto;margin:6px 0;color:#c8f0a8"><code>${escaped}</code></pre>`;
+  };
+
   let html;
-  try { html = marked.parse(t, { gfm: true, breaks: false }); }
+  try { html = marked.parse(t, { gfm: true, breaks: false, renderer }); }
   catch (e) { html = `<p>${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`; }
 
   if (typeof katex !== 'undefined') {
@@ -283,4 +294,21 @@ function mdToSimpleHtml(text) {
     html = html.replace(/MATHPH(\d+)MATHPH/g, (_, i) => `<code>${maths[+i].tex}</code>`);
   }
   return html;
+}
+
+let _mermaidInit = false;
+function renderMermaidIn(container) {
+  if (typeof mermaid === 'undefined') return;
+  const blocks = container.querySelectorAll('.mermaid-block[data-raw]');
+  if (!blocks.length) return;
+  if (!_mermaidInit) {
+    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+    _mermaidInit = true;
+  }
+  blocks.forEach((el, i) => {
+    const raw = el.dataset.raw.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    mermaid.render(`mermaid-popup-${Date.now()}-${i}`, raw)
+      .then(({ svg }) => { el.innerHTML = svg; el.removeAttribute('data-raw'); })
+      .catch(err => { el.innerHTML = `<pre style="color:#d06060">Mermaid error: ${err.message||err}</pre>`; });
+  });
 }
