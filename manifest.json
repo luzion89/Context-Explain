@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["lib/katex.min.css", "lib/fonts/*.woff2"],
+      "resources": ["lib/katex.min.css", "lib/fonts/*.woff2", "lib/mermaid.min.js"],
       "matches": ["<all_urls>"]
     }
   ],

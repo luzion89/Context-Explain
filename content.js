@@ -101,9 +101,9 @@ function renderMermaidBlocks(container) {
   if (_mermaidLoading) return;
   _mermaidLoading = true;
 
-  // Dynamically load mermaid from CDN (only when actually needed)
+  // Dynamically load mermaid from extension bundle (bypasses page CSP)
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+  script.src = chrome.runtime.getURL('lib/mermaid.min.js');
   script.onload = () => {
     mermaid.initialize({ startOnLoad: false, theme: 'dark' });
     _mermaidReady = true;
