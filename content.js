@@ -29,6 +29,12 @@ function renderMarkdown(raw) {
     // Custom renderer: keep code block styling consistent with our panel CSS
     const renderer = new marked.Renderer();
     renderer.code = ({ text, lang }) => {
+      if (lang === 'mermaid') {
+        // Render as a mermaid div; actual diagram injected after DOM insertion
+        const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="mermaid-block" data-raw="${escaped}">\
+<div class="mermaid-loading">⟳ Rendering diagram…</div></div>`;
+      }
       const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
       return `<pre class="code-block">${langLabel}<code>${escaped}</code></pre>`;
@@ -65,7 +71,56 @@ function renderMarkdown(raw) {
   return html;
 }
 
-// ─── Panel Styles ─────────────────────────────────────────────────────────────
+// ─── Mermaid lazy loader ──────────────────────────────────────────────────────
+let _mermaidReady = false;
+let _mermaidLoading = false;
+let _mermaidQueue = [];
+
+function renderMermaidBlocks(container) {
+  // container is the Shadow DOM element containing .mermaid-block nodes
+  const blocks = container.querySelectorAll('.mermaid-block[data-raw]');
+  if (!blocks.length) return;
+
+  const doRender = () => {
+    blocks.forEach((el, i) => {
+      const raw = el.dataset.raw
+        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+      const id = `mermaid-${Date.now()}-${i}`;
+      mermaid.render(id, raw).then(({ svg }) => {
+        el.innerHTML = svg;
+        el.removeAttribute('data-raw');
+      }).catch(err => {
+        el.innerHTML = `<pre class="mermaid-error">Mermaid error: ${err.message||err}</pre>`;
+      });
+    });
+  };
+
+  if (_mermaidReady) { doRender(); return; }
+
+  _mermaidQueue.push(doRender);
+  if (_mermaidLoading) return;
+  _mermaidLoading = true;
+
+  // Dynamically load mermaid from CDN (only when actually needed)
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+  script.onload = () => {
+    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+    _mermaidReady = true;
+    _mermaidLoading = false;
+    _mermaidQueue.forEach(fn => fn());
+    _mermaidQueue = [];
+  };
+  script.onerror = () => {
+    _mermaidLoading = false;
+    blocks.forEach(el => {
+      el.innerHTML = '<pre class="mermaid-error">Could not load Mermaid (no network?)</pre>';
+    });
+  };
+  document.head.appendChild(script);
+}
+
+
 const PANEL_STYLES = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :host { all: initial; }
@@ -178,6 +233,10 @@ const PANEL_STYLES = `
   .response-block .katex-display { margin: 10px 0; overflow-x: auto; }
   .response-block .katex { font-size: 1em; color: #e8d5c0; }
   .response-block .math-fallback { background: rgba(232,160,48,0.08); color: #c8b890; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+  .response-block .mermaid-block { margin: 10px 0; text-align: center; }
+  .response-block .mermaid-block svg { max-width: 100%; height: auto; border-radius: 6px; }
+  .response-block .mermaid-loading { color: #888; font-size: 12px; padding: 12px 0; }
+  .response-block .mermaid-error { color: #d06060; font-size: 11.5px; white-space: pre-wrap; }
   .response-block hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0; }
 
   .status-loading { color: #666; font-style: italic; font-size: 13px; }
@@ -637,6 +696,7 @@ function openFromHistory(entry, btnX, btnY) {
   // Show cached explanation immediately (no streaming)
   if (currentResponseBlock && entry.explanation) {
     currentResponseBlock.innerHTML = renderMarkdown(entry.explanation);
+    renderMermaidBlocks(currentResponseBlock);
   }
 
   // Show follow-ups
@@ -653,6 +713,7 @@ function openFromHistory(entry, btnX, btnY) {
       const block = document.createElement('div');
       block.className = 'response-block';
       block.innerHTML = renderMarkdown(fu.a);
+      renderMermaidBlocks(block);
       conversationBody.appendChild(block);
     }
   } else {
@@ -1353,6 +1414,7 @@ function onDone() {
   // Full markdown render exactly once, after stream completes
   if (currentResponseBlock) {
     currentResponseBlock.innerHTML = renderMarkdown(accumulatedText);
+    renderMermaidBlocks(currentResponseBlock);
   }
 
   const isInitial = conversationMessages.length === 1;
