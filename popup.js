@@ -258,16 +258,29 @@ function escHtml(s) {
 }
 
 function mdToSimpleHtml(text) {
-  // Minimal markdown for history detail view
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, '<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11.5px;overflow-x:auto;margin:6px 0;color:#c8f0a8"><code>$1</code></pre>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e8d5a8">$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(232,160,48,0.1);color:#e8d5a8;padding:1px 4px;border-radius:3px;font-size:11px">$1</code>')
-    .replace(/^### (.+)$/gm, '<strong>$1</strong>')
-    .replace(/^## (.+)$/gm, '<strong>$1</strong>')
-    .replace(/^# (.+)$/gm, '<strong>$1</strong>')
-    .replace(/^[-*] (.+)$/gm, '• $1')
-    .replace(/\n/g, '<br>');
+  if (!text) return '';
+
+  // Extract LaTeX before marked processes it
+  const maths = [];
+  const ph = (display, tex) => { maths.push({ display, tex }); return `MATHPH${maths.length-1}MATHPH`; };
+  let t = text;
+  t = t.replace(/\$\$([\s\S]+?)\$\$/g,  (_, x) => ph(true,  x));
+  t = t.replace(/\\\[([\s\S]+?)\\\]/g,   (_, x) => ph(true,  x));
+  t = t.replace(/\\\(([^]*?)\\\)/g,       (_, x) => ph(false, x));
+  t = t.replace(/(?<![\\$])\$([^$\n]{1,200}?)\$(?!\d)/g, (_, x) => ph(false, x));
+
+  let html;
+  try { html = marked.parse(t, { gfm: true, breaks: false }); }
+  catch (e) { html = `<p>${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`; }
+
+  if (typeof katex !== 'undefined') {
+    html = html.replace(/MATHPH(\d+)MATHPH/g, (_, i) => {
+      const { display, tex } = maths[+i];
+      try { return katex.renderToString(tex, { displayMode: display, throwOnError: false }); }
+      catch { return `<code>${tex}</code>`; }
+    });
+  } else {
+    html = html.replace(/MATHPH(\d+)MATHPH/g, (_, i) => `<code>${maths[+i].tex}</code>`);
+  }
+  return html;
 }
