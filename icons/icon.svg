@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#0f0f11"/>
+  <!-- Outer diamond -->
+  <polygon points="64,18 82,46 110,46 89,65 97,94 64,76 31,94 39,65 18,46 46,46" fill="none" stroke="#e8a030" stroke-width="1.5" opacity="0.35"/>
+  <!-- Main sparkle / diamond shape -->
+  <polygon points="64,30 72,56 98,64 72,72 64,98 56,72 30,64 56,56" fill="#e8a030" opacity="0.95"/>
+  <!-- Inner highlight -->
+  <polygon points="64,46 68,58 80,62 68,66 64,78 60,66 48,62 60,58" fill="#0f0f11" opacity="0.7"/>
+  <!-- Center dot -->
+  <circle cx="64" cy="62" r="4" fill="#e8a030"/>
+</svg>
