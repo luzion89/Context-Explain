@@ -831,11 +831,13 @@ function buildPanel(btnX, btnY, contextKey) {
   shadowRoot.appendChild(styleEl);
 
   // Inject KaTeX CSS into Shadow DOM (fonts referenced via extension URL)
-  if (typeof katex !== 'undefined') {
-    const katexLink = document.createElement('link');
-    katexLink.rel = 'stylesheet';
-    katexLink.href = chrome.runtime.getURL('lib/katex.min.css');
-    shadowRoot.appendChild(katexLink);
+  if (typeof katex !== 'undefined' && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
+    try {
+      const katexLink = document.createElement('link');
+      katexLink.rel = 'stylesheet';
+      katexLink.href = chrome.runtime.getURL('lib/katex.min.css');
+      shadowRoot.appendChild(katexLink);
+    } catch (e) { /* extension context invalidated — skip */ }
   }
 
   panelEl = document.createElement('div');
@@ -1433,7 +1435,7 @@ document.addEventListener('mouseup', (e) => {
 });
 
 // Fallback: selectionchange fires even when mouseup is swallowed by the page.
-// Debounced to avoid firing on every character during keyboard selection.
+// Debounced — we wait for the selection to stabilise after mouse release.
 let _selChangeTo = null;
 document.addEventListener('selectionchange', () => {
   clearTimeout(_selChangeTo);
@@ -1441,29 +1443,33 @@ document.addEventListener('selectionchange', () => {
     // Only act if mouse is not currently held down (avoid mid-drag flicker)
     if (_mouseIsDown) return;
     const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length < 3) return;
-    // Don't re-show if trigger is already visible for this selection
-    if (triggerBtn) return;
+    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length < 3) {
+      // Selection was cleared — hide trigger
+      removeTriggerBtn();
+      return;
+    }
     tryShowFromSelection();
-  }, 300);
+  }, 120);
 });
 
-// Track mouse button state for the selectionchange guard
+// Track mouse button state for the selectionchange guard.
+// Use capture so we see events even when the page calls stopPropagation.
 let _mouseIsDown = false;
-document.addEventListener('mousedown', (e) => {
-  _mouseIsDown = true;
+document.addEventListener('mousedown', () => { _mouseIsDown = true; }, { capture: true });
+document.addEventListener('mouseup',   () => { _mouseIsDown = false; }, { capture: true });
 
+// Close trigger/panel when clicking outside our UI elements
+document.addEventListener('mousedown', (e) => {
   if (!triggerBtn && !panelEl) return;
   const path = e.composedPath();
-  const onTrigger = triggerBtn && path.includes(triggerBtn);
-  const onPanel   = panelEl    && path.includes(panelEl);
+  const onTrigger   = triggerBtn && path.includes(triggerBtn);
+  const onPanel     = panelEl    && path.includes(panelEl);
   const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
   if (!onTrigger && !onPanel && !onHoverPopup) {
     removeTriggerBtn();
     removePanel();
   }
 });
-document.addEventListener('mouseup', () => { _mouseIsDown = false; }, { capture: true });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { removeTriggerBtn(); removePanel(); }
