@@ -498,7 +498,13 @@ function attachMarkHover(mark, contextKey) {
       e.stopPropagation();
       dismissPopup();
       const ann = pageAnnotations.get(contextKey);
-      if (ann) openFromHistory(ann.entry, rect.right + 4, rect.top);
+      if (!ann) return;
+      // Always read from storage to get the latest followUps
+      chrome.storage.local.get(['ctxHistory'], (data) => {
+        const hist = data.ctxHistory || [];
+        const fresh = hist.find(e => e.id === ann.entry.id) || ann.entry;
+        openFromHistory(fresh, rect.right + 4, rect.top);
+      });
     });
 
     // ── Remove annotation ──
@@ -636,8 +642,8 @@ function openFromHistory(entry, btnX, btnY) {
   // Show follow-ups
   if (entry.followUps && entry.followUps.length > 0) {
     for (const fu of entry.followUps) {
+      conversationMessages.push({ role: 'user',      content: fu.q });
       conversationMessages.push({ role: 'assistant', content: fu.a });
-      conversationMessages.push({ role: 'user', content: fu.q });
 
       const bubble = document.createElement('div');
       bubble.className = 'question-bubble';
@@ -649,8 +655,6 @@ function openFromHistory(entry, btnX, btnY) {
       block.innerHTML = renderMarkdown(fu.a);
       conversationBody.appendChild(block);
     }
-    // Last assistant message
-    conversationMessages.push({ role: 'assistant', content: entry.followUps[entry.followUps.length - 1].a });
   } else {
     // Just the explanation
     conversationMessages.push({ role: 'assistant', content: entry.explanation });
