@@ -273,8 +273,9 @@ function mdToSimpleHtml(text) {
   const renderer = new marked.Renderer();
   renderer.code = ({ text: code, lang }) => {
     if (lang === 'mermaid') {
+      // In popup, mermaid is not available (CSP blocks eval); show as code
       const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      return `<div class="mermaid-block" data-raw="${escaped}"><div class="mermaid-loading">⟳ Rendering diagram…</div></div>`;
+      return `<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11px;overflow-x:auto;margin:6px 0;color:#a8d0a8"><code>${escaped}</code></pre>`;
     }
     const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return `<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11.5px;overflow-x:auto;margin:6px 0;color:#c8f0a8"><code>${escaped}</code></pre>`;
