@@ -74,7 +74,53 @@ function renderMarkdown(raw) {
     if (pLines.length) blocks.push(`<p>${pLines.map(inlineRender).join('<br>')}</p>`);
   }
 
-  return blocks.join('');
+  const html = blocks.join('');
+  return renderKatex(html);
+}
+
+// ─── KaTeX rendering ─────────────────────────────────────────────────────────
+// Renders LaTeX math in HTML string. Supports:
+//   \( ... \)   inline math
+//   \[ ... \]   display math
+//   $$ ... $$   display math (common AI output)
+//   $ ... $     inline math (only when unambiguous: digit/letter boundary)
+function renderKatex(html) {
+  if (typeof katex === 'undefined') return html;
+
+  // Use a placeholder system so we don't double-process nested delimiters.
+  const maths = [];
+  const ph = (display, tex) => {
+    maths.push({ display, tex });
+    return `\x01MATH${maths.length - 1}\x01`;
+  };
+
+  let out = html;
+  // $$ ... $$ display (must come before single $)
+  out = out.replace(/\$\$([\s\S]+?)\$\$/g, (_, t) => ph(true, t));
+  // \[ ... \] display
+  out = out.replace(/\\\[([\s\S]+?)\\\]/g, (_, t) => ph(true, t));
+  // \( ... \) inline
+  out = out.replace(/\\\((.+?)\\\)/g, (_, t) => ph(false, t));
+  // $ ... $ inline — only match when surrounded by word chars / spaces (avoid currency)
+  out = out.replace(/(?<![\\$])\$([^$\n]{1,200}?)\$(?!\d)/g, (_, t) => ph(false, t));
+
+  // Replace placeholders with rendered HTML
+  out = out.replace(/\x01MATH(\d+)\x01/g, (_, idx) => {
+    const { display, tex } = maths[parseInt(idx)];
+    try {
+      return katex.renderToString(tex, {
+        displayMode: display,
+        throwOnError: false,
+        output: 'html',
+        trust: false,
+      });
+    } catch (e) {
+      // Fallback: show raw LaTeX in a code span
+      return `<code class="math-fallback">${tex}</code>`;
+    }
+  });
+
+  return out;
 }
 
 function inlineRender(text) {
@@ -201,6 +247,9 @@ const PANEL_STYLES = `
   .response-block ul, .response-block ol { padding-left: 18px; margin: 6px 0; }
   .response-block li { margin: 3px 0; }
   .response-block blockquote { border-left: 3px solid rgba(232,160,48,0.4); padding-left: 11px; margin: 6px 0; color: #9a9080; font-style: italic; }
+  .response-block .katex-display { margin: 10px 0; overflow-x: auto; }
+  .response-block .katex { font-size: 1em; color: #e8d5c0; }
+  .response-block .math-fallback { background: rgba(232,160,48,0.08); color: #c8b890; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
   .response-block hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0; }
 
   .status-loading { color: #666; font-style: italic; font-size: 13px; }
@@ -852,6 +901,14 @@ function buildPanel(btnX, btnY, contextKey) {
   const styleEl = document.createElement('style');
   styleEl.textContent = PANEL_STYLES;
   shadowRoot.appendChild(styleEl);
+
+  // Inject KaTeX CSS into Shadow DOM (fonts referenced via extension URL)
+  if (typeof katex !== 'undefined') {
+    const katexLink = document.createElement('link');
+    katexLink.rel = 'stylesheet';
+    katexLink.href = chrome.runtime.getURL('lib/katex.min.css');
+    shadowRoot.appendChild(katexLink);
+  }
 
   panelEl = document.createElement('div');
   panelEl.className = 'panel';
