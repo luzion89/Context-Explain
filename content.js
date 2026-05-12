@@ -838,6 +838,7 @@ function makeTooltip(text) {
 function removePanel() {
   abortStream();
   _askModeFirstMessage = false;
+  _askModeQuestion = null;
   // Save panel position before removing
   if (panelEl) {
     const key = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
@@ -1032,6 +1033,7 @@ function showPanel(ctx, btnX, btnY, mode) {
 
 // Flag for ask-mode first message
 let _askModeFirstMessage = false;
+let _askModeQuestion = null; // stores the user's question for ask-mode first turn
 
 function buildInitialPrompt(ctx) {
   return `Selected text: "${ctx.selectedText}"\n\nSurrounding context:\n…${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}…\n\nPlease explain what "${ctx.selectedText}" means in this context. If it's a technical term, acronym, or concept, explain it clearly. Be focused and practical.`;
@@ -1103,6 +1105,8 @@ function sendFollowup() {
       role: 'user',
       content: buildAskPrompt({ selectedText: currentTerm, contextBefore: currentContextBefore, contextAfter: currentContextAfter }, question)
     }];
+    // Mark that this is an ask-mode first message so onDone saves it correctly
+    _askModeQuestion = question;
 
     // Show the question as a bubble
     const bubble = document.createElement('div');
@@ -1395,23 +1399,36 @@ function onDone() {
 
   const isInitial = conversationMessages.length === 1;
 
-  if (isInitial) {
-    // Save to history + annotate page
+  if (isInitial && !_askModeQuestion) {
+    // Explain mode: first response — save as explanation
     const entry = saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, []);
     currentHistoryId = entry.id;
 
     // Annotate the selection on the page
-    // We need the range — reconstruct from context since we stored it separately
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0).cloneRange();
       const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
-      // entry will be used when annotation is clicked
+      annotateRange(range, contextKey, entry);
+      sel.removeAllRanges();
+    }
+  } else if (isInitial && _askModeQuestion) {
+    // Ask mode: first response — save with empty explanation, question+answer as first followUp
+    const entry = saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', []);
+    currentHistoryId = entry.id;
+    updateHistoryFollowup(currentHistoryId, _askModeQuestion, accumulatedText);
+    _askModeQuestion = null;
+
+    // Annotate the selection on the page
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0).cloneRange();
+      const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
       annotateRange(range, contextKey, entry);
       sel.removeAllRanges();
     }
   } else {
-    // Follow-up done
+    // Follow-up done (both modes)
     const lastUserMsg = conversationMessages[conversationMessages.length - 1];
     updateHistoryFollowup(currentHistoryId, lastUserMsg.content, accumulatedText);
   }
