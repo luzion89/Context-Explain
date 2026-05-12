@@ -2,139 +2,67 @@
    Context Explain — content.js
    ============================================================ */
 
-// ─── Markdown Renderer ────────────────────────────────────────────────────────
+// ─── Markdown + KaTeX Renderer ───────────────────────────────────────────────
+// marked.js handles all Markdown; KaTeX handles LaTeX math.
+
 function renderMarkdown(raw) {
   if (!raw) return '';
-  let text = raw;
 
-  // 1. Fenced code blocks
-  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
-    return `\x00PRE\x00<pre class="code-block">${langLabel}<code>${escaped.trimEnd()}</code></pre>\x00/PRE\x00`;
-  });
-
-  const lines = text.split('\n');
-  const blocks = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Pre-rendered blocks (code)
-    if (line.includes('\x00PRE\x00')) {
-      blocks.push(line.replace(/\x00\/?PRE\x00/g, ''));
-      i++; continue;
-    }
-
-    const h3 = line.match(/^### (.+)/);
-    const h2 = line.match(/^## (.+)/);
-    const h1 = line.match(/^# (.+)/);
-    if (h3) { blocks.push(`<h3>${inlineRender(h3[1])}</h3>`); i++; continue; }
-    if (h2) { blocks.push(`<h2>${inlineRender(h2[1])}</h2>`); i++; continue; }
-    if (h1) { blocks.push(`<h1>${inlineRender(h1[1])}</h1>`); i++; continue; }
-
-    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) { blocks.push('<hr>'); i++; continue; }
-
-    if (line.startsWith('> ')) {
-      let qLines = [];
-      while (i < lines.length && lines[i].startsWith('> ')) { qLines.push(lines[i].slice(2)); i++; }
-      blocks.push(`<blockquote>${qLines.map(inlineRender).join('<br>')}</blockquote>`);
-      continue;
-    }
-
-    if (/^[-*+] /.test(line)) {
-      let items = [];
-      while (i < lines.length && /^[-*+] /.test(lines[i])) {
-        items.push(`<li>${inlineRender(lines[i].replace(/^[-*+] /, ''))}</li>`); i++;
-      }
-      blocks.push(`<ul>${items.join('')}</ul>`);
-      continue;
-    }
-
-    if (/^\d+\. /.test(line)) {
-      let items = [];
-      while (i < lines.length && /^\d+\. /.test(lines[i])) {
-        items.push(`<li>${inlineRender(lines[i].replace(/^\d+\. /, ''))}</li>`); i++;
-      }
-      blocks.push(`<ol>${items.join('')}</ol>`);
-      continue;
-    }
-
-    if (line.trim() === '') { blocks.push('<div class="para-break"></div>'); i++; continue; }
-
-    let pLines = [];
-    while (i < lines.length) {
-      const l = lines[i];
-      if (l.includes('\x00PRE\x00') || l.trim() === '' || /^#{1,3} /.test(l) ||
-          /^[-*+] /.test(l) || /^\d+\. /.test(l) || /^> /.test(l) ||
-          /^(-{3,}|\*{3,})$/.test(l.trim())) break;
-      pLines.push(l); i++;
-    }
-    if (pLines.length) blocks.push(`<p>${pLines.map(inlineRender).join('<br>')}</p>`);
-  }
-
-  const html = blocks.join('');
-  return renderKatex(html);
-}
-
-// ─── KaTeX rendering ─────────────────────────────────────────────────────────
-// Renders LaTeX math in HTML string. Supports:
-//   \( ... \)   inline math
-//   \[ ... \]   display math
-//   $$ ... $$   display math (common AI output)
-//   $ ... $     inline math (only when unambiguous: digit/letter boundary)
-function renderKatex(html) {
-  if (typeof katex === 'undefined') return html;
-
-  // Use a placeholder system so we don't double-process nested delimiters.
+  // 1. Extract LaTeX math blocks BEFORE passing to marked, so marked doesn't
+  //    mangle backslashes / underscores inside formulas.
   const maths = [];
   const ph = (display, tex) => {
     maths.push({ display, tex });
-    return `\x01MATH${maths.length - 1}\x01`;
+    return `MATHPH${maths.length - 1}MATHPH`;
   };
 
-  let out = html;
-  // $$ ... $$ display (must come before single $)
-  out = out.replace(/\$\$([\s\S]+?)\$\$/g, (_, t) => ph(true, t));
-  // \[ ... \] display
-  out = out.replace(/\\\[([\s\S]+?)\\\]/g, (_, t) => ph(true, t));
-  // \( ... \) inline
-  out = out.replace(/\\\((.+?)\\\)/g, (_, t) => ph(false, t));
-  // $ ... $ inline — only match when surrounded by word chars / spaces (avoid currency)
-  out = out.replace(/(?<![\\$])\$([^$\n]{1,200}?)\$(?!\d)/g, (_, t) => ph(false, t));
+  let text = raw;
+  text = text.replace(/\$\$([\s\S]+?)\$\$/g,   (_, t) => ph(true,  t));
+  text = text.replace(/\\\[([\s\S]+?)\\\]/g,    (_, t) => ph(true,  t));
+  text = text.replace(/\\\(([^]*?)\\\)/g,        (_, t) => ph(false, t));
+  // single $ — only when clearly math (not currency: must have letter/digit after $)
+  text = text.replace(/(?<![\\$])\$([^$\n]{1,200}?)\$(?!\d)/g, (_, t) => ph(false, t));
 
-  // Replace placeholders with rendered HTML
-  out = out.replace(/\x01MATH(\d+)\x01/g, (_, idx) => {
-    const { display, tex } = maths[parseInt(idx)];
-    try {
-      return katex.renderToString(tex, {
-        displayMode: display,
-        throwOnError: false,
-        output: 'html',
-        trust: false,
-      });
-    } catch (e) {
-      // Fallback: show raw LaTeX in a code span
+  // 2. Run marked (full CommonMark-compatible Markdown)
+  let html;
+  try {
+    // Custom renderer: keep code block styling consistent with our panel CSS
+    const renderer = new marked.Renderer();
+    renderer.code = ({ text, lang }) => {
+      const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
+      return `<pre class="code-block">${langLabel}<code>${escaped}</code></pre>`;
+    };
+    html = marked.parse(text, {
+      gfm: true,
+      breaks: false,
+      renderer,
+    });
+  } catch (e) {
+    html = `<p>${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`;
+  }
+
+  // 3. Restore math placeholders → KaTeX rendered HTML
+  if (typeof katex !== 'undefined') {
+    html = html.replace(/MATHPH(\d+)MATHPH/g, (_, idx) => {
+      const { display, tex } = maths[parseInt(idx)];
+      try {
+        return katex.renderToString(tex, {
+          displayMode: display, throwOnError: false, output: 'html', trust: false,
+        });
+      } catch (e) {
+        return `<code class="math-fallback">${tex}</code>`;
+      }
+    });
+  } else {
+    // KaTeX unavailable — restore raw LaTeX inside <code>
+    html = html.replace(/MATHPH(\d+)MATHPH/g, (_, idx) => {
+      const { tex } = maths[parseInt(idx)];
       return `<code class="math-fallback">${tex}</code>`;
-    }
-  });
+    });
+  }
 
-  return out;
-}
-
-function inlineRender(text) {
-  let s = text
-    .replace(/&(?!amp;|lt;|gt;|quot;)/g, '&amp;')
-    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
-  s = s.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
-  s = s.replace(/_([^_]+?)_/g, '<em>$1</em>');
-  s = s.replace(/~~(.+?)~~/g, '<del>$1</del>');
-  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  return s;
+  return html;
 }
 
 // ─── Panel Styles ─────────────────────────────────────────────────────────────
@@ -1455,65 +1383,87 @@ function escHtml(s) {
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
-document.addEventListener('mouseup', (e) => {
-  // Ignore clicks inside our own UI
-  if (panelEl && e.composedPath().includes(panelEl)) return;
-  if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
 
-  // Read selection and compute position SYNCHRONOUSLY here, before any other
-  // extension (e.g. Immersive Translate) can mutate the DOM and invalidate the
-  // Range object. We only defer the UI render (cheap, no selection access needed).
+// Shared logic: given the current selection, compute button position and show.
+// Returns true if a trigger button was shown.
+function tryShowFromSelection() {
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return;
+  if (!sel || sel.rangeCount === 0) return false;
 
   const selectedText = sel.toString().trim();
-  if (selectedText.length < 3) { removeTriggerBtn(); return; }
+  if (selectedText.length < 3) return false;
 
-  // Check BOTH anchor and focus nodes for editability
+  // Skip editable nodes
   const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
     ? sel.anchorNode.parentElement : sel.anchorNode;
   const focusEl  = sel.focusNode?.nodeType  === Node.TEXT_NODE
     ? sel.focusNode.parentElement  : sel.focusNode;
-  if (isEditable(anchorEl) || isEditable(focusEl)) { removeTriggerBtn(); return; }
+  if (isEditable(anchorEl) || isEditable(focusEl)) return false;
 
-  // Compute button position from the range before any DOM mutation can invalidate it
-  let btnX, btnY;
   try {
     const range = sel.getRangeAt(0);
-
-    // getClientRects() can return zero-width rects for cross-line selections.
-    // Find the last rect with non-zero width, fall back to getBoundingClientRect.
     const rects = Array.from(range.getClientRects());
     let lastRect = null;
     for (let i = rects.length - 1; i >= 0; i--) {
       if (rects[i].width > 0) { lastRect = rects[i]; break; }
     }
     if (!lastRect) lastRect = range.getBoundingClientRect();
-    if (!lastRect || lastRect.width === 0) return;
+    if (!lastRect || lastRect.width === 0) return false;
 
-    btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
-    btnY = lastRect.top + (lastRect.height - 28) / 2;
+    const btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
+    const btnY = lastRect.top + (lastRect.height - 28) / 2;
+    showTriggerBtn(btnX, btnY);
+    return true;
   } catch (err) {
-    // Selection APIs can throw on cross-frame ranges — silently ignore
-    return;
+    return false;
   }
+}
 
-  // Defer only the DOM insertion of the button (safe — doesn't access selection)
-  setTimeout(() => showTriggerBtn(btnX, btnY), 0);
+document.addEventListener('mouseup', (e) => {
+  // Ignore clicks inside our own UI
+  if (panelEl && e.composedPath().includes(panelEl)) return;
+  if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
+
+  // Read selection synchronously before any extension can mutate DOM/Range
+  if (!tryShowFromSelection()) {
+    // Only hide trigger if no text selected (not if it simply failed to show)
+    const sel = window.getSelection();
+    if (!sel || sel.toString().trim().length < 3) removeTriggerBtn();
+  }
 });
 
+// Fallback: selectionchange fires even when mouseup is swallowed by the page.
+// Debounced to avoid firing on every character during keyboard selection.
+let _selChangeTo = null;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(_selChangeTo);
+  _selChangeTo = setTimeout(() => {
+    // Only act if mouse is not currently held down (avoid mid-drag flicker)
+    if (_mouseIsDown) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length < 3) return;
+    // Don't re-show if trigger is already visible for this selection
+    if (triggerBtn) return;
+    tryShowFromSelection();
+  }, 300);
+});
+
+// Track mouse button state for the selectionchange guard
+let _mouseIsDown = false;
 document.addEventListener('mousedown', (e) => {
+  _mouseIsDown = true;
+
   if (!triggerBtn && !panelEl) return;
   const path = e.composedPath();
   const onTrigger = triggerBtn && path.includes(triggerBtn);
   const onPanel   = panelEl    && path.includes(panelEl);
-  // Check by class name too (hover popup buttons live outside shadow DOM)
   const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
   if (!onTrigger && !onPanel && !onHoverPopup) {
     removeTriggerBtn();
-    if (!onPanel) removePanel();
+    removePanel();
   }
 });
+document.addEventListener('mouseup', () => { _mouseIsDown = false; }, { capture: true });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { removeTriggerBtn(); removePanel(); }
