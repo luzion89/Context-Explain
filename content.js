@@ -71,53 +71,29 @@ function renderMarkdown(raw) {
   return html;
 }
 
-// ─── Mermaid lazy loader ──────────────────────────────────────────────────────
-let _mermaidReady = false;
-let _mermaidLoading = false;
-let _mermaidQueue = [];
-
+// ─── Mermaid renderer ────────────────────────────────────────────────────────
 function renderMermaidBlocks(container) {
-  // container is the Shadow DOM element containing .mermaid-block nodes
+  if (typeof mermaid === 'undefined') return;
   const blocks = container.querySelectorAll('.mermaid-block[data-raw]');
   if (!blocks.length) return;
 
-  const doRender = () => {
-    blocks.forEach((el, i) => {
-      const raw = el.dataset.raw
-        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
-      const id = `mermaid-${Date.now()}-${i}`;
-      mermaid.render(id, raw).then(({ svg }) => {
-        el.innerHTML = svg;
-        el.removeAttribute('data-raw');
-      }).catch(err => {
-        el.innerHTML = `<pre class="mermaid-error">Mermaid error: ${err.message||err}</pre>`;
-      });
-    });
-  };
-
-  if (_mermaidReady) { doRender(); return; }
-
-  _mermaidQueue.push(doRender);
-  if (_mermaidLoading) return;
-  _mermaidLoading = true;
-
-  // Dynamically load mermaid from extension bundle (bypasses page CSP)
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('lib/mermaid.min.js');
-  script.onload = () => {
+  // Initialize once
+  if (!renderMermaidBlocks._init) {
     mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-    _mermaidReady = true;
-    _mermaidLoading = false;
-    _mermaidQueue.forEach(fn => fn());
-    _mermaidQueue = [];
-  };
-  script.onerror = () => {
-    _mermaidLoading = false;
-    blocks.forEach(el => {
-      el.innerHTML = '<pre class="mermaid-error">Could not load Mermaid (no network?)</pre>';
+    renderMermaidBlocks._init = true;
+  }
+
+  blocks.forEach((el, i) => {
+    const raw = el.dataset.raw
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    const id = `mermaid-${Date.now()}-${i}`;
+    mermaid.render(id, raw).then(({ svg }) => {
+      el.innerHTML = svg;
+      el.removeAttribute('data-raw');
+    }).catch(err => {
+      el.innerHTML = `<pre class="mermaid-error">Mermaid error: ${err.message||err}</pre>`;
     });
-  };
-  document.head.appendChild(script);
+  });
 }
 
 
