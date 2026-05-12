@@ -1386,54 +1386,49 @@ function escHtml(s) {
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 document.addEventListener('mouseup', (e) => {
   // Ignore clicks inside our own UI
-  // NOTE: panelRoot is a transparent full-page wrapper with pointerEvents:none,
-  // so we check panelEl (the actual visible panel) instead of panelRoot.
   if (panelEl && e.composedPath().includes(panelEl)) return;
   if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
 
-  // Delay so the browser finalises the selection object
-  setTimeout(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
+  // Read selection and compute position SYNCHRONOUSLY here, before any other
+  // extension (e.g. Immersive Translate) can mutate the DOM and invalidate the
+  // Range object. We only defer the UI render (cheap, no selection access needed).
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
 
-    const selectedText = sel.toString().trim();
+  const selectedText = sel.toString().trim();
+  if (selectedText.length < 3) { removeTriggerBtn(); return; }
 
-    // Too short — clear and bail
-    if (selectedText.length < 3) { removeTriggerBtn(); return; }
+  // Check BOTH anchor and focus nodes for editability
+  const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
+    ? sel.anchorNode.parentElement : sel.anchorNode;
+  const focusEl  = sel.focusNode?.nodeType  === Node.TEXT_NODE
+    ? sel.focusNode.parentElement  : sel.focusNode;
+  if (isEditable(anchorEl) || isEditable(focusEl)) { removeTriggerBtn(); return; }
 
-    // Too long — still show buttons (user can decide), just cap what we send
-    // (removed the > 600 hard bail; context extraction already caps at 600)
+  // Compute button position from the range before any DOM mutation can invalidate it
+  let btnX, btnY;
+  try {
+    const range = sel.getRangeAt(0);
 
-    // Check BOTH anchor and focus nodes for editability
-    const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
-      ? sel.anchorNode.parentElement : sel.anchorNode;
-    const focusEl  = sel.focusNode?.nodeType  === Node.TEXT_NODE
-      ? sel.focusNode.parentElement  : sel.focusNode;
-    if (isEditable(anchorEl) || isEditable(focusEl)) { removeTriggerBtn(); return; }
-
-    try {
-      const range = sel.getRangeAt(0);
-
-      // getClientRects() can return zero-width rects for cross-line spans.
-      // Find the last rect with non-zero width, fall back to getBoundingClientRect.
-      const rects = Array.from(range.getClientRects());
-      let lastRect = null;
-      for (let i = rects.length - 1; i >= 0; i--) {
-        if (rects[i].width > 0) { lastRect = rects[i]; break; }
-      }
-      if (!lastRect) {
-        // Fallback: bounding rect of the whole range
-        lastRect = range.getBoundingClientRect();
-      }
-      if (!lastRect || lastRect.width === 0) return;
-
-      const btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
-      const btnY = lastRect.top + (lastRect.height - 28) / 2;
-      showTriggerBtn(btnX, btnY);
-    } catch (err) {
-      // Selection APIs can throw on cross-frame ranges — silently ignore
+    // getClientRects() can return zero-width rects for cross-line selections.
+    // Find the last rect with non-zero width, fall back to getBoundingClientRect.
+    const rects = Array.from(range.getClientRects());
+    let lastRect = null;
+    for (let i = rects.length - 1; i >= 0; i--) {
+      if (rects[i].width > 0) { lastRect = rects[i]; break; }
     }
-  }, 20);
+    if (!lastRect) lastRect = range.getBoundingClientRect();
+    if (!lastRect || lastRect.width === 0) return;
+
+    btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
+    btnY = lastRect.top + (lastRect.height - 28) / 2;
+  } catch (err) {
+    // Selection APIs can throw on cross-frame ranges — silently ignore
+    return;
+  }
+
+  // Defer only the DOM insertion of the button (safe — doesn't access selection)
+  setTimeout(() => showTriggerBtn(btnX, btnY), 0);
 });
 
 document.addEventListener('mousedown', (e) => {
