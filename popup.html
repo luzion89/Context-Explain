@@ -403,18 +403,67 @@
 
     .detail-explanation {
       font-size: 13px;
-      line-height: 1.7;
+      line-height: 1.75;
       color: #c0bcb4;
+    }
+
+    /* Markdown elements inside detail view */
+    .detail-explanation p, .detail-a p { margin: 0 0 8px; }
+    .detail-explanation p:last-child, .detail-a p:last-child { margin-bottom: 0; }
+    .detail-explanation h1, .detail-a h1 { font-size: 14px; font-weight: 700; color: #f0e8d4; margin: 10px 0 5px; }
+    .detail-explanation h2, .detail-a h2 { font-size: 13.5px; font-weight: 700; color: #f0e8d4; margin: 8px 0 4px; }
+    .detail-explanation h3, .detail-a h3 { font-size: 13px; font-weight: 700; color: #e8d5a8; margin: 6px 0 3px; }
+    .detail-explanation strong, .detail-a strong { color: #f0e8d4; font-weight: 600; }
+    .detail-explanation em, .detail-a em { color: #c8c0b0; font-style: italic; }
+    .detail-explanation del, .detail-a del { opacity: 0.5; text-decoration: line-through; }
+    .detail-explanation a, .detail-a a { color: #e8a030; text-decoration: none; border-bottom: 1px solid rgba(232,160,48,0.3); }
+    .detail-explanation ul, .detail-a ul,
+    .detail-explanation ol, .detail-a ol { padding-left: 18px; margin: 5px 0; }
+    .detail-explanation li, .detail-a li { margin: 2px 0; }
+    .detail-explanation blockquote, .detail-a blockquote {
+      border-left: 3px solid rgba(232,160,48,0.4); padding-left: 10px;
+      margin: 6px 0; color: #9a9080; font-style: italic;
+    }
+    .detail-explanation code, .detail-a code {
+      font-family: 'SF Mono','Fira Code',monospace; font-size: 11px;
+      background: rgba(232,160,48,0.1); color: #e8d5a8;
+      padding: 1px 4px; border-radius: 3px;
+    }
+    .detail-explanation pre, .detail-a pre {
+      background: rgba(0,0,0,0.3); border-radius: 5px;
+      padding: 8px 10px; overflow-x: auto; margin: 6px 0;
+    }
+    .detail-explanation pre code, .detail-a pre code {
+      background: none; padding: 0; color: #c8f0a8; font-size: 11px;
+    }
+    .detail-explanation table, .detail-a table {
+      border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 12px;
+    }
+    .detail-explanation th, .detail-a th {
+      background: rgba(232,160,48,0.1); color: #e8d5a8; font-weight: 600;
+      padding: 5px 8px; border: 1px solid rgba(255,255,255,0.08); text-align: left;
+    }
+    .detail-explanation td, .detail-a td {
+      padding: 4px 8px; border: 1px solid rgba(255,255,255,0.06); color: #c0bcb4;
+    }
+    .detail-explanation .mermaid-block, .detail-a .mermaid-block {
+      margin: 8px 0; text-align: center;
+    }
+    .detail-explanation .mermaid-block svg, .detail-a .mermaid-block svg {
+      max-width: 100%; height: auto; border-radius: 6px;
+    }
+    .detail-explanation .mermaid-loading, .detail-a .mermaid-loading {
+      color: #888; font-size: 12px; padding: 8px 0;
     }
 
     .detail-qa { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; }
     .detail-q {
-      font-size: 11.5px; color: #a89870; font-style: italic;
-      padding: 7px 10px; background: rgba(232,160,48,0.05);
-      border-left: 2px solid rgba(232,160,48,0.3);
+      font-size: 12px; color: #d4a855; font-style: italic;
+      padding: 7px 10px; background: rgba(232,160,48,0.08);
+      border-left: 2px solid rgba(232,160,48,0.5);
       border-radius: 0 4px 4px 0; margin-bottom: 6px;
     }
-    .detail-a { font-size: 12.5px; line-height: 1.7; color: #c0bcb4; margin-bottom: 12px; }
+    .detail-a { font-size: 12.5px; line-height: 1.75; color: #c0bcb4; margin-bottom: 12px; }
 
     .detail-url {
       font-size: 10.5px; color: #2e2e42;
