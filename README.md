@@ -39,7 +39,11 @@ Most lookup tools treat every word in isolation. Context Explain captures the su
 | Mode | Icon | When to use |
 |---|---|---|
 | **Explain** | ✦ | You want the AI to explain the selection for you |
-| **Ask** | ? | You already know what it is — you have a specific question |
+| **Ask** | ? | You want to ask your own question about the selected passage |
+
+**Explain mode** is for when you encounter something unfamiliar — a term, concept, acronym, or passage you don't fully understand. Select it and click ✦. The AI immediately explains it in context, without you needing to formulate a question.
+
+**Ask mode** is for when you already understand what the text says, but have a specific follow-up in mind — for example: *"Is this argument logically sound?"*, *"What are the counterarguments to this?"*, *"Can you give a real-world example of this?"*, or *"How does this compare to X?"* Select the relevant passage, click **?**, and type exactly what you want to know.
 
 ### It keeps talking
 

@@ -39,7 +39,7 @@ function renderMarkdown(raw) {
     if (line.startsWith('> ')) {
       let qLines = [];
       while (i < lines.length && lines[i].startsWith('> ')) { qLines.push(lines[i].slice(2)); i++; }
-      blocks.push(`<blockquote>${inlineRender(qLines.join('\n'))}</blockquote>`);
+      blocks.push(`<blockquote>${qLines.map(inlineRender).join('<br>')}</blockquote>`);
       continue;
     }
 
@@ -71,7 +71,7 @@ function renderMarkdown(raw) {
           /^(-{3,}|\*{3,})$/.test(l.trim())) break;
       pLines.push(l); i++;
     }
-    if (pLines.length) blocks.push(`<p>${inlineRender(pLines.join('<br>'))}</p>`);
+    if (pLines.length) blocks.push(`<p>${pLines.map(inlineRender).join('<br>')}</p>`);
   }
 
   return blocks.join('');
@@ -1440,8 +1440,7 @@ document.addEventListener('mousedown', (e) => {
   const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
   if (!onTrigger && !onPanel && !onHoverPopup) {
     removeTriggerBtn();
-    // Only close the main panel on outside click — not on every mousedown
-    // (panel is kept open so user can read while re-selecting text)
+    if (!onPanel) removePanel();
   }
 });
 
