@@ -1119,11 +1119,21 @@ function defaultModel(provider) {
 }
 
 async function loadConfig() {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(
-      ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang'],
-      resolve
-    );
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.storage.sync.get(
+        ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang'],
+        (result) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error('__invalidated__'));
+          } else {
+            resolve(result);
+          }
+        }
+      );
+    } catch (e) {
+      reject(new Error('__invalidated__'));
+    }
   });
 }
 
@@ -1150,6 +1160,10 @@ function startStream() {
   // Run async fetch directly in content script
   runFetch().catch(err => {
     if (err.name === 'AbortError') return; // user closed panel — silent
+    if (err.message === '__invalidated__') {
+      handleStreamFailure('插件已更新，请刷新页面后重试。\nThe extension was reloaded — please refresh the page.');
+      return;
+    }
     handleStreamFailure(err.message || 'Request failed.');
   });
 }
