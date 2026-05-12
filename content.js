@@ -1386,7 +1386,9 @@ function escHtml(s) {
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 document.addEventListener('mouseup', (e) => {
   // Ignore clicks inside our own UI
-  if (panelRoot && e.composedPath().includes(panelRoot)) return;
+  // NOTE: panelRoot is a transparent full-page wrapper with pointerEvents:none,
+  // so we check panelEl (the actual visible panel) instead of panelRoot.
+  if (panelEl && e.composedPath().includes(panelEl)) return;
   if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
 
   // Delay so the browser finalises the selection object
@@ -1435,10 +1437,10 @@ document.addEventListener('mouseup', (e) => {
 });
 
 document.addEventListener('mousedown', (e) => {
-  if (!triggerBtn && !panelRoot) return;
+  if (!triggerBtn && !panelEl) return;
   const path = e.composedPath();
   const onTrigger = triggerBtn && path.includes(triggerBtn);
-  const onPanel   = panelRoot  && path.includes(panelRoot);
+  const onPanel   = panelEl    && path.includes(panelEl);
   // Check by class name too (hover popup buttons live outside shadow DOM)
   const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
   if (!onTrigger && !onPanel && !onHoverPopup) {
