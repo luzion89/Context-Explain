@@ -24,6 +24,15 @@ const fieldBaseUrl    = $('fieldBaseUrl');
 const keyHintEl       = $('keyHint');
 const modelHintEl     = $('modelHint');
 
+// ─── Vision API DOM refs ──────────────────────────────────────────────────────
+const visionEnabledEl      = $('vision-enabled');
+const visionEndpointEl     = $('vision-endpoint');
+const visionKeyEl          = $('vision-key');
+const visionKeyToggleEl    = $('vision-key-toggle');
+const visionModelEl        = $('vision-model');
+const visionUseTextEl      = $('vision-use-text-config');
+const visionConfigFieldsEl = $('vision-config-fields');
+
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -68,10 +77,29 @@ toggleKeyEl.addEventListener('click', () => {
   toggleKeyEl.textContent = show ? 'hide' : 'show';
 });
 
+// ─── Vision API: key toggle ───────────────────────────────────────────────────
+visionKeyToggleEl.addEventListener('click', () => {
+  visionKeyEl.type = visionKeyEl.type === 'password' ? 'text' : 'password';
+});
+
+// ─── Vision API: "Use Text API config" checkbox ───────────────────────────────
+visionUseTextEl.addEventListener('change', () => {
+  if (visionUseTextEl.checked) {
+    visionEndpointEl.value = apiBaseUrlEl.value || '';
+    visionKeyEl.value = apiKeyEl.value || '';
+    visionEndpointEl.disabled = true;
+    visionKeyEl.disabled = true;
+  } else {
+    visionEndpointEl.disabled = false;
+    visionKeyEl.disabled = false;
+  }
+});
+
 // ─── Settings: Load ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(
-    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme'],
+    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme',
+     'visionEnabled','visionApiEndpoint','visionApiKey','visionApiModel','visionUseTextConfig'],
     (data) => {
       const p = data.apiProvider || 'openai';
       providerEl.value = p;
@@ -83,6 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
       themeSelectEl.value = theme;
       applyTheme(theme);
       updateProviderUI(p);
+
+      // Vision settings
+      visionEnabledEl.checked   = data.visionEnabled || false;
+      visionEndpointEl.value    = data.visionApiEndpoint || '';
+      visionKeyEl.value         = data.visionApiKey || '';
+      visionModelEl.value       = data.visionApiModel || '';
+      visionUseTextEl.checked   = data.visionUseTextConfig || false;
+      if (data.visionUseTextConfig) {
+        visionEndpointEl.disabled = true;
+        visionKeyEl.disabled = true;
+      }
     }
   );
 });
@@ -128,6 +167,13 @@ saveBtnEl.addEventListener('click', () => {
     apiBaseUrl,
     responseLang: responseLangEl.value,
     theme: themeSelectEl.value,
+    // Vision settings — when "Use Text API config" is checked, persist the
+    // resolved text-API values so content.js can read visionApiKey directly.
+    visionEnabled:       visionEnabledEl.checked,
+    visionApiEndpoint:   visionUseTextEl.checked ? apiBaseUrl : visionEndpointEl.value.trim(),
+    visionApiKey:        visionUseTextEl.checked ? apiKey     : visionKeyEl.value.trim(),
+    visionApiModel:      visionModelEl.value.trim(),
+    visionUseTextConfig: visionUseTextEl.checked,
   }, () => {
     if (chrome.runtime.lastError) showStatus('Error: ' + chrome.runtime.lastError.message, 'warn');
     else {
