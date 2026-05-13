@@ -1043,7 +1043,7 @@ function abortStream() {
 }
 
 // contextKey passed so we can look up saved position
-function buildPanel(btnX, btnY, contextKey) {
+function buildPanel(btnX, btnY, contextKey, mode) {
   panelRoot = document.createElement('div');
   panelRoot.id = 'ctx-explain-root';
   Object.assign(panelRoot.style, { position: 'fixed', top: '0', left: '0', zIndex: '2147483647', pointerEvents: 'none' });
@@ -1202,7 +1202,7 @@ function buildPanel(btnX, btnY, contextKey) {
 
   // Resize handles + geometry persistence
   setupResize(panelEl);
-  restorePanelGeometry(panelEl);
+  restorePanelGeometry(panelEl, mode === 'translate');
 }
 
 function forceClosePanel() {
@@ -1219,7 +1219,7 @@ function showPanel(ctx, btnX, btnY, mode) {
   currentHistoryId = null;
 
   const contextKey = makeContextKey(ctx.selectedText, ctx.contextBefore, ctx.contextAfter);
-  buildPanel(btnX, btnY, contextKey);
+  buildPanel(btnX, btnY, contextKey, mode);
 
   if (mode === 'ask') {
     // Ask mode: skip auto-explain, show input immediately, hide loading block
@@ -1287,13 +1287,14 @@ Surrounding context:
 Target language: ${targetLang}
 
 Instructions:
-1. If the selected text is NOT already in ${targetLang}: provide a natural, context-aware translation. Be concise and direct. Do not add lengthy explanations or meta-commentary.
-2. If the selected text IS already in ${targetLang}: do NOT re-translate. Instead, provide a brief contextual note — what this word/phrase means in this specific context, its tone, connotation, or a more natural way to express it. Keep it short.
-3. Single word → most contextually appropriate translation or meaning.
-4. Short phrase → natural equivalent expression.
-5. Sentence(s) → complete natural translation preserving meaning.
-6. Multi-paragraph → translate preserving paragraph structure.
-7. Output the result directly without any preamble like "Here is the translation:" or "This is already in Chinese".`;
+1. If the selected text is NOT already in ${targetLang}: provide a natural, context-aware translation. Prioritize communicative equivalence over word-for-word literalism.
+2. If no clean, natural translation exists (idiomatic expressions, cultural references, proper nouns, slang, or context-specific jargon): instead of a forced literal translation, provide 1–2 sentences briefly explaining what the text means in this context. Keep it concise.
+3. If the selected text IS already in ${targetLang}: provide a brief contextual note — what this word/phrase means here, its tone, connotation, or a more natural way to express it.
+4. Single word → most contextually appropriate translation or meaning.
+5. Short phrase → natural equivalent expression.
+6. Sentence(s) → complete natural translation preserving meaning and tone.
+7. Multi-paragraph → translate preserving paragraph structure.
+8. Output the result directly without any preamble like "Here is the translation:" or "Translation:".`;
 }
 
 function buildAskPrompt(ctx, question) {
@@ -1356,14 +1357,14 @@ async function savePanelGeometry(panelEl) {
   } catch (e) { /* storage unavailable */ }
 }
 
-async function restorePanelGeometry(panelEl) {
+async function restorePanelGeometry(panelEl, positionOnly = false) {
   try {
     const { panelGeometry: g } = await chrome.storage.local.get('panelGeometry');
     if (!g) return;
     const vw = window.innerWidth, vh = window.innerHeight;
     const MIN_W = 380, MIN_H = 380;
-    const w = Math.max(MIN_W, Math.min(g.w || MIN_W, vw * 0.9));
-    const h = Math.max(MIN_H, Math.min(g.h || MIN_H, vh * 0.9));
+    const w = positionOnly ? MIN_W : Math.max(MIN_W, Math.min(g.w || MIN_W, vw * 0.9));
+    const h = positionOnly ? MIN_H : Math.max(MIN_H, Math.min(g.h || MIN_H, vh * 0.9));
     const x = Math.max(0, Math.min(g.x || 0, vw - w));
     const y = Math.max(0, Math.min(g.y || 0, vh - h));
     panelEl.style.width = w + 'px';
