@@ -116,6 +116,12 @@ function getThemeVarsCSS() {
     --code-bg: rgba(232,160,48,0.1);
     --code-text: #e8d5a8;
     --scrollbar: rgba(232,160,48,0.18);
+    --text-disabled: #3a3830;
+    --btn-primary-text: #0a0a0c;
+    --focus-ring: rgba(232,160,48,0.5);
+    --input-border: rgba(255,255,255,0.1);
+    --input-border-focus: rgba(232,160,48,0.55);
+    --surface-hover: rgba(255,255,255,0.04);
   }
 
   :host([data-theme="light"]) {
@@ -135,6 +141,12 @@ function getThemeVarsCSS() {
     --code-bg: rgba(192,120,24,0.08);
     --code-text: #7a4010;
     --scrollbar: rgba(192,120,24,0.2);
+    --text-disabled: #b0aca8;
+    --btn-primary-text: #0a0a0c;
+    --focus-ring: rgba(192,120,24,0.45);
+    --input-border: rgba(0,0,0,0.15);
+    --input-border-focus: rgba(192,120,24,0.5);
+    --surface-hover: rgba(0,0,0,0.04);
   }
   `;
 }
@@ -187,7 +199,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     display: none;
   }
   .retry-btn.visible { display: flex; }
-  .retry-btn:hover { color: var(--accent); background: var(--accent-dim); }
+  .retry-btn:hover { color: var(--accent); background: var(--surface-hover); }
 
   .close-btn {
     width: 22px; height: 22px; border-radius: 50%;
@@ -195,14 +207,14 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: color 0.15s, background 0.15s; flex-shrink: 0;
   }
-  .close-btn:hover { color: var(--accent); background: var(--accent-dim); }
+  .close-btn:hover { color: var(--accent); background: var(--surface-hover); }
 
   .term-block {
     padding: 9px 14px;
     background: var(--code-bg);
     border-left: 3px solid var(--accent);
     font-family: 'SF Mono','Fira Code',monospace;
-    color: var(--code-text); font-size: 12px; line-height: 1.5;
+    color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 1.5;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     overflow: hidden; flex-shrink: 0; word-break: break-word;
   }
@@ -286,7 +298,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .copy-btn:hover:not(:disabled) { background: var(--accent); color: #0a0a0c; }
   .copy-btn:disabled { opacity: 0.3; cursor: default; }
 
-  .footer-status { font-size: 11px; color: var(--text-hint); flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
+  .footer-status { font-size: 11px; color: var(--text-secondary); flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
   .footer-status.done { color: var(--success); }
   .footer-status.error-st { color: var(--error); }
   .footer-status.streaming { color: var(--text-secondary); }
@@ -297,14 +309,14 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .followup-area.visible { display: flex; }
   .followup-input {
     flex: 1; background: var(--input-bg);
-    border: 1px solid var(--border); border-radius: 8px;
+    border: 1px solid var(--input-border); border-radius: 8px;
     color: var(--text-primary); font-size: 12.5px; font-family: -apple-system, sans-serif;
     padding: 7px 10px; resize: none; outline: none;
     line-height: 1.5; min-height: 34px; max-height: 90px; overflow-y: auto;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
   .followup-input::placeholder { color: var(--text-hint); }
-  .followup-input:focus { border-color: var(--accent-border); }
+  .followup-input:focus { border-color: var(--input-border-focus); box-shadow: 0 0 0 3px var(--focus-ring); }
   .followup-send {
     width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px;
     background: var(--accent); border: none; color: #0a0a0c; font-size: 15px;
@@ -361,6 +373,23 @@ const pageAnnotations = new Map();
 let scrollbarCanvas = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function getHostButtonColors() {
+  const isLight = panelRoot?.dataset.theme === 'light';
+  return {
+    bg: isLight ? '#f5f3ef' : '#0f0f11',
+    accentColor: isLight ? '#c07818' : '#e8a030',
+    accentBorder: isLight ? 'rgba(192,120,24,0.6)' : 'rgba(232,160,48,0.6)',
+    askColor: isLight ? '#2563eb' : '#a8c8f0',
+    askBorder: isLight ? 'rgba(37,99,235,0.45)' : 'rgba(120,180,255,0.45)',
+    viewBg: isLight ? '#f5f3ef' : '#0f0f11',
+    viewBorder: isLight ? 'rgba(192,120,24,0.65)' : 'rgba(232,160,48,0.65)',
+    viewColor: isLight ? '#c07818' : '#e8a030',
+    removeBg: isLight ? '#f5f3ef' : '#0f0f11',
+    removeBorder: isLight ? 'rgba(192,80,80,0.45)' : 'rgba(200,80,80,0.45)',
+    removeColor: isLight ? 'rgba(192,80,80,0.8)' : 'rgba(200,80,80,0.7)',
+  };
+}
+
 function isEditable(node) {
   if (!node) return false;
   if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') return true;
@@ -533,16 +562,17 @@ function attachMarkHover(mark, contextKey) {
     // ── View History button ──
     const viewBtn = document.createElement('button');
     // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
-    // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
+    // Colors resolved dynamically from current panel theme.
+    const hbc = getHostButtonColors();
     viewBtn.textContent = '✦';
     viewBtn.title = 'View explanation';
     Object.assign(viewBtn.style, {
       width: '26px', height: '26px',
       padding: '0',
       borderRadius: '13px',
-      background: '#0f0f11',
-      border: '1.5px solid rgba(232,160,48,0.65)',
-      color: '#e8a030',
+      background: hbc.viewBg,
+      border: `1.5px solid ${hbc.viewBorder}`,
+      color: hbc.viewColor,
       fontSize: '12px',
       cursor: 'pointer',
       fontFamily: '-apple-system,sans-serif',
@@ -558,9 +588,9 @@ function attachMarkHover(mark, contextKey) {
       height: '24px',
       width: '24px',
       borderRadius: '12px',
-      background: '#0f0f11',
-      border: '1.5px solid rgba(200,80,80,0.45)',
-      color: 'rgba(200,80,80,0.7)',
+      background: hbc.removeBg,
+      border: `1.5px solid ${hbc.removeBorder}`,
+      color: hbc.removeColor,
       fontSize: '11px',
       cursor: 'pointer',
       fontFamily: '-apple-system,sans-serif',
@@ -800,13 +830,14 @@ function showTriggerBtn(x, y) {
   });
 
   // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
-  // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
+  // CSS variables don't propagate here. Colors resolved from current theme.
+  const hbc = getHostButtonColors();
   const btnStyle = {
     height: '26px',
     borderRadius: '13px',
-    background: '#0f0f11',
-    border: '1.5px solid rgba(232,160,48,0.6)',
-    color: '#e8a030',
+    background: hbc.bg,
+    border: `1.5px solid ${hbc.accentBorder}`,
+    color: hbc.accentColor,
     fontSize: '13px',
     cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -838,8 +869,8 @@ function showTriggerBtn(x, y) {
     ...btnStyle,
     fontSize: '13px',
     fontWeight: '700',
-    color: '#a8c8f0',
-    border: '1.5px solid rgba(120,180,255,0.45)',
+    color: hbc.askColor,
+    border: `1.5px solid ${hbc.askBorder}`,
   });
 
   const askLabel = makeTooltip('Ask');
