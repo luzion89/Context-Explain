@@ -17,6 +17,7 @@ const apiModelEl      = $('apiModel');
 const apiBaseUrlEl    = $('apiBaseUrl');
 const responseLangEl  = $('responseLang');
 const themeSelectEl   = $('theme-select');
+const translateLangEl = $('translate-lang');
 const saveBtnEl       = $('saveBtn');
 const statusMsgEl     = $('statusMsg');
 const toggleKeyEl     = $('toggleKey');
@@ -71,7 +72,7 @@ toggleKeyEl.addEventListener('click', () => {
 // ─── Settings: Load ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(
-    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme'],
+    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme','translateLang'],
     (data) => {
       const p = data.apiProvider || 'openai';
       providerEl.value = p;
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const theme = data.theme || 'system';
       themeSelectEl.value = theme;
       applyTheme(theme);
+      translateLangEl.value = data.translateLang || 'Chinese (Simplified)';
       updateProviderUI(p);
     }
   );
@@ -128,6 +130,7 @@ saveBtnEl.addEventListener('click', () => {
     apiBaseUrl,
     responseLang: responseLangEl.value,
     theme: themeSelectEl.value,
+    translateLang: translateLangEl.value,
   }, () => {
     if (chrome.runtime.lastError) showStatus('Error: ' + chrome.runtime.lastError.message, 'warn');
     else {
@@ -180,6 +183,11 @@ function renderHistList(items) {
       || (entry.followUps && entry.followUps[0] ? `Q: ${entry.followUps[0].q}` : '');
     const preview = previewText.replace(/[#*`>\n]/g, ' ').replace(/\s+/g,' ').trim().slice(0, 100);
     const fuCount = (entry.followUps || []).length;
+    const modeBadge = entry.mode === 'translate'
+      ? `<span class="hist-followup-badge" title="Translation">⇌</span>`
+      : entry.mode === 'ask'
+        ? `<span class="hist-followup-badge" title="Ask">?</span>`
+        : '';
     return `<div class="hist-item" data-id="${entry.id}">
       <div class="hist-item-main">
         <div class="hist-term">${escHtml(entry.term)}</div>
@@ -187,6 +195,7 @@ function renderHistList(items) {
         <div class="hist-meta">
           <span class="hist-time">${formatTs(entry.ts)}</span>
           <span class="hist-site">${escHtml(hostnameOf(entry.url))}</span>
+          ${modeBadge}
           ${fuCount > 0 ? `<span class="hist-followup-badge">+${fuCount} Q</span>` : ''}
         </div>
       </div>

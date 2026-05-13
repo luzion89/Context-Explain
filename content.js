@@ -486,7 +486,7 @@ function makeContextKey(term, contextBefore, contextAfter) {
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
-function saveToHistory(term, contextBefore, contextAfter, explanation, followUps) {
+function saveToHistory(term, contextBefore, contextAfter, explanation, followUps, mode) {
   const entry = {
     id: Date.now() + Math.random().toString(36).slice(2),
     ts: Date.now(),
@@ -494,7 +494,8 @@ function saveToHistory(term, contextBefore, contextAfter, explanation, followUps
     pageTitle: document.title,
     term, contextBefore, contextAfter,
     explanation,
-    followUps: followUps || []
+    followUps: followUps || [],
+    mode: mode || 'explain'
   };
   return new Promise(resolve => {
     chrome.storage.local.get(['ctxHistory'], (data) => {
@@ -939,6 +940,20 @@ function showTriggerBtn(x, y) {
   wrap.appendChild(explainBtn);
   wrap.appendChild(askBtn);
 
+  // ── Translate button ──
+  const translateBtn = document.createElement('button');
+  translateBtn.innerHTML = '⇌';
+  translateBtn.title = 'Translate';
+  Object.assign(translateBtn.style, btnStyle);
+
+  const translateLabel = makeTooltip('Translate');
+  translateBtn.appendChild(translateLabel);
+
+  translateBtn.addEventListener('mouseenter', () => { translateLabel.style.opacity = '1'; translateLabel.style.transform = 'translateX(-50%) translateY(0)'; });
+  translateBtn.addEventListener('mouseleave', () => { translateLabel.style.opacity = '0'; translateLabel.style.transform = 'translateX(-50%) translateY(-3px)'; });
+
+  wrap.appendChild(translateBtn);
+
   // Stop mousedown from clearing selection
   wrap.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); });
 
@@ -958,6 +973,15 @@ function showTriggerBtn(x, y) {
     const ctx = extractContext(sel);
     removeTriggerBtn();
     showPanel(ctx, x, y, 'ask');
+  });
+
+  translateBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const sel = window.getSelection();
+    if (!sel || sel.toString().trim().length === 0) return;
+    const ctx = extractContext(sel);
+    removeTriggerBtn();
+    showPanel(ctx, x, y, 'translate');
   });
 
   document.body.appendChild(wrap);
@@ -996,6 +1020,8 @@ function removePanel() {
   abortStream();
   _askModeFirstMessage = false;
   _askModeQuestion = null;
+  _currentMode = 'explain';
+  _pendingTranslateCtx = null;
   // Save panel position before removing
   if (panelEl) {
     const key = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
@@ -1183,7 +1209,7 @@ function forceClosePanel() {
   removePanel();
 }
 
-// mode: 'explain' | 'ask'
+// mode: 'explain' | 'ask' | 'translate'
 function showPanel(ctx, btnX, btnY, mode) {
   forceClosePanel();
   currentTerm = ctx.selectedText;
@@ -1212,8 +1238,17 @@ function showPanel(ctx, btnX, btnY, mode) {
     accumulatedText = '';
     // Override sendFollowup to handle first message specially in ask mode
     _askModeFirstMessage = true;
+  } else if (mode === 'translate') {
+    // Translate mode: auto-stream like explain, but different prompt + status
+    if (footerStatus) { footerStatus.textContent = 'Translating…'; footerStatus.className = 'footer-status streaming'; }
+    _currentMode = 'translate';
+    const userContent = buildTranslatePromptPlaceholder(ctx);
+    conversationMessages = [{ role: 'user', content: userContent }];
+    accumulatedText = '';
+    startStream();
   } else {
     // Explain mode (default)
+    _currentMode = 'explain';
     const userContent = buildInitialPrompt(ctx);
     conversationMessages = [{ role: 'user', content: userContent }];
     accumulatedText = '';
@@ -1224,9 +1259,40 @@ function showPanel(ctx, btnX, btnY, mode) {
 // Flag for ask-mode first message
 let _askModeFirstMessage = false;
 let _askModeQuestion = null; // stores the user's question for ask-mode first turn
+let _currentMode = 'explain'; // 'explain' | 'translate'
 
 function buildInitialPrompt(ctx) {
   return `Selected text: "${ctx.selectedText}"\n\nSurrounding context:\n…${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}…\n\nPlease explain what "${ctx.selectedText}" means in this context. If it's a technical term, acronym, or concept, explain it clearly. Be focused and practical.`;
+}
+
+// Placeholder: the real prompt is built in runFetch after loading translateLang from storage.
+// We store ctx so runFetch can build it.
+let _pendingTranslateCtx = null;
+function buildTranslatePromptPlaceholder(ctx) {
+  _pendingTranslateCtx = ctx;
+  // Return a temporary placeholder; runFetch will replace conversationMessages before sending
+  return '__translate_placeholder__';
+}
+
+function buildTranslatePrompt(ctx, targetLang) {
+  const { selectedText, contextBefore, contextAfter } = ctx;
+  return `I am reading a webpage and selected the following text:
+
+"${selectedText}"
+
+Surrounding context:
+…${contextBefore}[${selectedText}]${contextAfter}…
+
+Target language: ${targetLang}
+
+Instructions:
+1. If the selected text is NOT already in ${targetLang}: provide a natural, context-aware translation. Be concise and direct. Do not add lengthy explanations or meta-commentary.
+2. If the selected text IS already in ${targetLang}: do NOT re-translate. Instead, provide a brief contextual note — what this word/phrase means in this specific context, its tone, connotation, or a more natural way to express it. Keep it short.
+3. Single word → most contextually appropriate translation or meaning.
+4. Short phrase → natural equivalent expression.
+5. Sentence(s) → complete natural translation preserving meaning.
+6. Multi-paragraph → translate preserving paragraph structure.
+7. Output the result directly without any preamble like "Here is the translation:" or "This is already in Chinese".`;
 }
 
 function buildAskPrompt(ctx, question) {
@@ -1418,7 +1484,7 @@ async function loadConfig() {
   return new Promise((resolve, reject) => {
     try {
       chrome.storage.sync.get(
-        ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang'],
+        ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','translateLang'],
         (result) => {
           if (chrome.runtime.lastError) {
             reject(new Error('__invalidated__'));
@@ -1471,14 +1537,28 @@ async function runFetch() {
   const model      = config.apiModel  || defaultModel(provider);
   const apiBaseUrl = config.apiBaseUrl || '';
   const lang       = config.responseLang || 'auto';
+  const translateLang = config.translateLang || 'Chinese (Simplified)';
 
   if (!apiKey) {
     handleStreamFailure('No API key configured. Click the extension icon to set up.');
     return;
   }
 
-  const langInstruction = lang === 'auto' ? 'the same language as the selected text' : lang;
-  const systemPrompt = `You are a knowledgeable and concise expert explainer. The user has selected text from a webpage and wants to understand it better. Explain clearly and be appropriately detailed. Use markdown formatting when helpful (bold for key terms, code blocks for code, bullet points for lists). Respond in ${langInstruction}.`;
+  let systemPrompt;
+  if (_currentMode === 'translate') {
+    // Replace placeholder with real translate prompt now that we have translateLang
+    if (_pendingTranslateCtx) {
+      conversationMessages = [{
+        role: 'user',
+        content: buildTranslatePrompt(_pendingTranslateCtx, translateLang)
+      }];
+      _pendingTranslateCtx = null;
+    }
+    systemPrompt = `You are a precise translator and language expert. Follow the user's instructions exactly. Be concise.`;
+  } else {
+    const langInstruction = lang === 'auto' ? 'the same language as the selected text' : lang;
+    systemPrompt = `You are a knowledgeable and concise expert explainer. The user has selected text from a webpage and wants to understand it better. Explain clearly and be appropriately detailed. Use markdown formatting when helpful (bold for key terms, code blocks for code, bullet points for lists). Respond in ${langInstruction}.`;
+  }
 
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
@@ -1664,8 +1744,8 @@ async function onDone() {
   const isInitial = conversationMessages.length === 1;
 
   if (isInitial && !_askModeQuestion) {
-    // Explain mode: first response — save as explanation
-    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, []);
+    // Explain/translate mode: first response — save as explanation
+    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, [], _currentMode);
     currentHistoryId = entry.id;
 
     const sel = window.getSelection();
@@ -1679,7 +1759,7 @@ async function onDone() {
     // Ask mode: first response — save with empty explanation, then add Q&A as followUp
     const q = _askModeQuestion;
     _askModeQuestion = null;
-    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', []);
+    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', [], 'ask');
     currentHistoryId = entry.id;
     await updateHistoryFollowup(currentHistoryId, q, accumulatedText);
 
