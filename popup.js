@@ -471,7 +471,7 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
   let httpStatus = null;
 
   try {
-    const TEST_IMAGE_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg==';
+    const TEST_IMAGE_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVQoU2P8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==';
 
     const messages = isVision ? [{
       role: 'user',
