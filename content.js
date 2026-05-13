@@ -324,6 +324,10 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .response-block .mermaid-loading { color: var(--text-secondary); font-size: 12px; padding: 12px 0; }
   .response-block .mermaid-error { color: var(--error); font-size: 11.5px; white-space: pre-wrap; }
   .response-block hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .response-block table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12.5px; }
+  .response-block th { background: var(--code-bg); color: var(--code-text); font-weight: 600; padding: 6px 10px; border: 1px solid var(--input-border); text-align: left; }
+  .response-block td { padding: 5px 10px; border: 1px solid var(--input-border); color: var(--text-primary); }
+  .response-block tr:nth-child(even) { background: var(--surface-hover); }
 
   .status-loading { color: var(--text-hint); font-style: italic; font-size: 13px; }
   .cursor-blink {
@@ -338,6 +342,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     padding: 9px 15px;
     background: var(--accent-dim);
     border-left: 2px solid var(--accent-border);
+    border-bottom: 1px solid var(--accent-border);
     font-size: 12.5px; color: var(--text-secondary);
     font-style: italic; word-break: break-word;
   }

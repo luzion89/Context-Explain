@@ -503,10 +503,10 @@
     }
     .detail-explanation th, .detail-a th {
       background: var(--code-bg); color: var(--code-text); font-weight: 600;
-      padding: 5px 8px; border: 1px solid var(--border); text-align: left;
+      padding: 5px 8px; border: 1px solid var(--input-border); text-align: left;
     }
     .detail-explanation td, .detail-a td {
-      padding: 4px 8px; border: 1px solid var(--border); color: var(--text-primary);
+      padding: 4px 8px; border: 1px solid var(--input-border); color: var(--text-primary);
     }
     .detail-explanation .mermaid-block, .detail-a .mermaid-block {
       margin: 8px 0; text-align: center;
@@ -541,9 +541,15 @@
     .setting-group { margin-bottom: 11px; }
     .setting-group:last-child { margin-bottom: 0; }
 
+    #vision-fields-group.disabled input,
+    #vision-fields-group.disabled button.btn-model-check {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
     .hint {
       font-size: 11.5px;
-      color: var(--text-hint);
+      color: var(--text-secondary);
       margin-top: 4px;
       line-height: 1.4;
     }
@@ -633,13 +639,26 @@
     }
     .btn-model-check:hover { color: var(--text-secondary); }
     .btn-model-check.spinning {
-      animation: ctx-check-spin 0.7s linear infinite;
+      color: transparent !important;
+      position: relative;
+    }
+    .btn-model-check.spinning::after {
+      content: '';
+      position: absolute;
+      width: 11px; height: 11px;
+      border: 1.5px solid var(--text-hint);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: ctx-check-spin 0.65s linear infinite;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      box-sizing: border-box;
     }
     .btn-model-check.check-success { color: var(--success); }
     .btn-model-check.check-error { color: var(--error); }
     @keyframes ctx-check-spin {
-      from { transform: translateY(-50%) rotate(0deg); }
-      to { transform: translateY(-50%) rotate(360deg); }
+      from { transform: translate(-50%,-50%) rotate(0deg); }
+      to { transform: translate(-50%,-50%) rotate(360deg); }
     }
     .test-inline-result {
       font-size: 11.5px;
@@ -714,6 +733,7 @@
 
     <!-- Vision API Tab -->
     <div class="ai-tab-panel" id="ai-tab-vision">
+      <div id="vision-fields-group">
       <div class="setting-group">
         <label for="vision-endpoint">API Endpoint</label>
         <input type="text" id="vision-endpoint" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
@@ -732,6 +752,7 @@
           <button type="button" id="test-vision-api" class="btn-model-check" title="Test connection">✓</button>
         </div>
         <div id="test-vision-result" class="test-inline-result"></div>
+      </div>
       </div>
       <div class="setting-group">
         <label class="checkbox-label">
