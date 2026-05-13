@@ -356,25 +356,30 @@ function saveToHistory(term, contextBefore, contextAfter, explanation, followUps
     explanation,
     followUps: followUps || []
   };
-  chrome.storage.local.get(['ctxHistory'], (data) => {
-    const hist = data.ctxHistory || [];
-    hist.unshift(entry);
-    if (hist.length > 2000) hist.length = 2000;
-    chrome.storage.local.set({ ctxHistory: hist });
+  return new Promise(resolve => {
+    chrome.storage.local.get(['ctxHistory'], (data) => {
+      const hist = data.ctxHistory || [];
+      hist.unshift(entry);
+      if (hist.length > 2000) hist.length = 2000;
+      chrome.storage.local.set({ ctxHistory: hist }, () => resolve(entry));
+    });
   });
-  return entry;
 }
 
 function updateHistoryFollowup(historyId, question, answer) {
-  if (!historyId) return;
-  chrome.storage.local.get(['ctxHistory'], (data) => {
-    const hist = data.ctxHistory || [];
-    const entry = hist.find(e => e.id === historyId);
-    if (entry) {
-      if (!entry.followUps) entry.followUps = [];
-      entry.followUps.push({ q: question, a: answer });
-      chrome.storage.local.set({ ctxHistory: hist });
-    }
+  if (!historyId) return Promise.resolve();
+  return new Promise(resolve => {
+    chrome.storage.local.get(['ctxHistory'], (data) => {
+      const hist = data.ctxHistory || [];
+      const entry = hist.find(e => e.id === historyId);
+      if (entry) {
+        if (!entry.followUps) entry.followUps = [];
+        entry.followUps.push({ q: question, a: answer });
+        chrome.storage.local.set({ ctxHistory: hist }, resolve);
+      } else {
+        resolve();
+      }
+    });
   });
 }
 
@@ -1384,7 +1389,7 @@ function appendChunk(text) {
   }
 }
 
-function onDone() {
+async function onDone() {
   if (!isStreaming) return;
   abortStream();
 
@@ -1401,10 +1406,9 @@ function onDone() {
 
   if (isInitial && !_askModeQuestion) {
     // Explain mode: first response — save as explanation
-    const entry = saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, []);
+    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, []);
     currentHistoryId = entry.id;
 
-    // Annotate the selection on the page
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0).cloneRange();
@@ -1413,13 +1417,13 @@ function onDone() {
       sel.removeAllRanges();
     }
   } else if (isInitial && _askModeQuestion) {
-    // Ask mode: first response — save with empty explanation, question+answer as first followUp
-    const entry = saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', []);
-    currentHistoryId = entry.id;
-    updateHistoryFollowup(currentHistoryId, _askModeQuestion, accumulatedText);
+    // Ask mode: first response — save with empty explanation, then add Q&A as followUp
+    const q = _askModeQuestion;
     _askModeQuestion = null;
+    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', []);
+    currentHistoryId = entry.id;
+    await updateHistoryFollowup(currentHistoryId, q, accumulatedText);
 
-    // Annotate the selection on the page
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0).cloneRange();
@@ -1430,7 +1434,7 @@ function onDone() {
   } else {
     // Follow-up done (both modes)
     const lastUserMsg = conversationMessages[conversationMessages.length - 1];
-    updateHistoryFollowup(currentHistoryId, lastUserMsg.content, accumulatedText);
+    await updateHistoryFollowup(currentHistoryId, lastUserMsg.content, accumulatedText);
   }
 
   if (copyBtn) copyBtn.disabled = false;
