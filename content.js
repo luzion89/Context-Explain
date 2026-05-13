@@ -193,6 +193,35 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     user-select: text;
   }
   .panel.visible { opacity: 1; transform: translateY(0) scale(1); }
+  .panel.has-geometry { max-height: none; }
+
+  .panel-inner {
+    display: flex; flex-direction: column; height: 100%;
+  }
+
+  .ctx-resize-handle {
+    position: absolute; bottom: 0; width: 14px; height: 14px;
+    cursor: nwse-resize; opacity: 0.4; transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .ctx-resize-handle:hover { opacity: 0.9; }
+  .ctx-resize-sw { left: 0; cursor: nesw-resize; }
+  .ctx-resize-se { right: 0; }
+  .ctx-resize-sw::after {
+    content: ''; position: absolute; bottom: 3px; left: 3px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 0 7px 7px;
+    border-color: transparent transparent var(--text-hint) transparent;
+  }
+  .ctx-resize-se::after {
+    content: ''; position: absolute; bottom: 3px; right: 3px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 0 7px 7px;
+    border-color: transparent transparent var(--text-hint) transparent;
+    transform: scaleX(-1);
+  }
 
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -247,7 +276,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
 
   .conversation-body {
-    padding: 0; overflow-y: auto; flex-grow: 1;
+    padding: 0; overflow-y: auto; flex: 1; min-height: 0;
     scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent;
   }
   .conversation-body::-webkit-scrollbar { width: 4px; }
@@ -1015,26 +1044,30 @@ function buildPanel(btnX, btnY, contextKey) {
   panelEl.className = 'panel';
   panelEl.style.pointerEvents = 'all';
   panelEl.innerHTML = `
-    <div class="panel-header">
-      <span class="logo">✦ Context Explain</span>
-      <div class="header-right">
-        <button class="retry-btn" title="Retry">↺</button>
-        <button class="pin-btn" title="Pin panel"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375l-.508.508a.5.5 0 0 1-.707 0l-2.5-2.5a.5.5 0 0 1-.707 0l-1 1a.5.5 0 0 1-.707-.707l1-1a.5.5 0 0 1 0-.707l-2.5-2.5a.5.5 0 0 1 0-.707l.508-.508c.688-.688 1.673-.766 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.134a2.772 2.772 0 0 1-.039-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z"/></svg></button>
-        <button class="close-btn" title="Close">×</button>
+    <div class="panel-inner">
+      <div class="panel-header">
+        <span class="logo">✦ Context Explain</span>
+        <div class="header-right">
+          <button class="retry-btn" title="Retry">↺</button>
+          <button class="pin-btn" title="Pin panel"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375l-.508.508a.5.5 0 0 1-.707 0l-2.5-2.5a.5.5 0 0 1-.707 0l-1 1a.5.5 0 0 1-.707-.707l1-1a.5.5 0 0 1 0-.707l-2.5-2.5a.5.5 0 0 1 0-.707l.508-.508c.688-.688 1.673-.766 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.134a2.772 2.772 0 0 1-.039-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z"/></svg></button>
+          <button class="close-btn" title="Close">×</button>
+        </div>
+      </div>
+      <div class="term-block"></div>
+      <div class="conversation-body"></div>
+      <div class="panel-footer">
+        <div class="footer-actions">
+          <button class="copy-btn" disabled>Copy</button>
+          <span class="footer-status streaming">Explaining…</span>
+        </div>
+        <div class="followup-area">
+          <textarea class="followup-input" placeholder="Ask a follow-up question…" rows="1"></textarea>
+          <button class="followup-send" disabled title="Send">↑</button>
+        </div>
       </div>
     </div>
-    <div class="term-block"></div>
-    <div class="conversation-body"></div>
-    <div class="panel-footer">
-      <div class="footer-actions">
-        <button class="copy-btn" disabled>Copy</button>
-        <span class="footer-status streaming">Explaining…</span>
-      </div>
-      <div class="followup-area">
-        <textarea class="followup-input" placeholder="Ask a follow-up question…" rows="1"></textarea>
-        <button class="followup-send" disabled title="Send">↑</button>
-      </div>
-    </div>
+    <div class="ctx-resize-sw ctx-resize-handle"></div>
+    <div class="ctx-resize-se ctx-resize-handle"></div>
   `;
   shadowRoot.appendChild(panelEl);
 
@@ -1139,6 +1172,10 @@ function buildPanel(btnX, btnY, contextKey) {
 
   // Draggable
   makeDraggable(panelEl, panelEl.querySelector('.panel-header'));
+
+  // Resize handles + geometry persistence
+  setupResize(panelEl);
+  restorePanelGeometry(panelEl);
 }
 
 function forceClosePanel() {
@@ -1196,6 +1233,80 @@ function buildAskPrompt(ctx, question) {
   return `I'm reading a page and selected this text: "${ctx.selectedText}"\n\nContext: …${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}…\n\nMy question: ${question}`;
 }
 
+// ─── Resize handles ───────────────────────────────────────────────────────────
+function setupResize(panelEl) {
+  const MIN_W = 380, MIN_H = 380;
+  panelEl.querySelectorAll('.ctx-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = panelEl.offsetWidth, startH = panelEl.offsetHeight;
+      const startLeft = parseFloat(panelEl.style.left) || 0;
+      const isSW = handle.classList.contains('ctx-resize-sw');
+      let animFrame = null;
+
+      const onMove = (ev) => {
+        if (animFrame) cancelAnimationFrame(animFrame);
+        animFrame = requestAnimationFrame(() => {
+          const dx = ev.clientX - startX, dy = ev.clientY - startY;
+          const maxW = window.innerWidth * 0.9;
+          const maxH = window.innerHeight * 0.9;
+          let newW = isSW ? startW - dx : startW + dx;
+          let newH = startH + dy;
+          newW = Math.max(MIN_W, Math.min(newW, maxW));
+          newH = Math.max(MIN_H, Math.min(newH, maxH));
+          panelEl.style.width = newW + 'px';
+          panelEl.style.height = newH + 'px';
+          panelEl.classList.add('has-geometry');
+          if (isSW) {
+            const deltaW = newW - startW;
+            panelEl.style.left = (startLeft - deltaW) + 'px';
+          }
+        });
+      };
+      const onUp = () => {
+        if (animFrame) cancelAnimationFrame(animFrame);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        savePanelGeometry(panelEl);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+async function savePanelGeometry(panelEl) {
+  try {
+    const geo = {
+      x: parseFloat(panelEl.style.left) || 0,
+      y: parseFloat(panelEl.style.top) || 0,
+      w: panelEl.offsetWidth,
+      h: panelEl.offsetHeight
+    };
+    await chrome.storage.local.set({ panelGeometry: geo });
+  } catch (e) { /* storage unavailable */ }
+}
+
+async function restorePanelGeometry(panelEl) {
+  try {
+    const { panelGeometry: g } = await chrome.storage.local.get('panelGeometry');
+    if (!g) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const MIN_W = 380, MIN_H = 380;
+    const w = Math.max(MIN_W, Math.min(g.w || MIN_W, vw * 0.9));
+    const h = Math.max(MIN_H, Math.min(g.h || MIN_H, vh * 0.9));
+    const x = Math.max(0, Math.min(g.x || 0, vw - w));
+    const y = Math.max(0, Math.min(g.y || 0, vh - h));
+    panelEl.style.width = w + 'px';
+    panelEl.style.height = h + 'px';
+    panelEl.style.left = x + 'px';
+    panelEl.style.top = y + 'px';
+    panelEl.classList.add('has-geometry');
+  } catch (e) { /* storage unavailable */ }
+}
+
 // ─── Draggable ────────────────────────────────────────────────────────────────
 function makeDraggable(panel, handle) {
   let dragging = false, ox = 0, oy = 0;
@@ -1227,7 +1338,7 @@ function makeDraggable(panel, handle) {
     panel.style.top  = ny + 'px';
   };
 
-  const onUp = () => { dragging = false; handle.style.cursor = 'grab'; };
+  const onUp = () => { dragging = false; handle.style.cursor = 'grab'; savePanelGeometry(panelEl); };
 
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
