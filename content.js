@@ -218,6 +218,16 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .retry-btn.visible { display: flex; }
   .retry-btn:hover { color: var(--accent); background: var(--surface-hover); }
 
+  .pin-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: transparent; border: none;
+    color: var(--text-secondary); font-size: 17px; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s, background 0.15s; padding: 0; flex-shrink: 0;
+  }
+  .pin-btn:hover { color: var(--accent); background: var(--accent-dim); }
+  .pin-btn.active { color: var(--accent); background: var(--accent-dim); }
+
   .close-btn {
     width: 22px; height: 22px; border-radius: 50%;
     background: transparent; border: none; color: var(--text-hint); font-size: 17px; line-height: 1;
@@ -369,6 +379,7 @@ let retryBtn = null;
 let followupArea = null;
 let followupInput = null;
 let followupSend = null;
+let isPinned = false;
 let currentPort = null;          // kept for potential future use, not used for streaming
 let currentAbortController = null; // AbortController for in-flight fetch
 let isStreaming = false;
@@ -758,7 +769,7 @@ function addScrollbarMarker(contextKey, markEl) {
 
 // ─── Open from history (annotated mark clicked) ───────────────────────────────
 function openFromHistory(entry, btnX, btnY) {
-  removePanel();
+  forceClosePanel();
 
   currentTerm = entry.term;
   currentContextBefore = entry.contextBefore || '';
@@ -1008,6 +1019,7 @@ function buildPanel(btnX, btnY, contextKey) {
       <span class="logo">✦ Context Explain</span>
       <div class="header-right">
         <button class="retry-btn" title="Retry">↺</button>
+        <button class="pin-btn" title="Pin panel"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375l-.508.508a.5.5 0 0 1-.707 0l-2.5-2.5a.5.5 0 0 1-.707 0l-1 1a.5.5 0 0 1-.707-.707l1-1a.5.5 0 0 1 0-.707l-2.5-2.5a.5.5 0 0 1 0-.707l.508-.508c.688-.688 1.673-.766 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.134a2.772 2.772 0 0 1-.039-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z"/></svg></button>
         <button class="close-btn" title="Close">×</button>
       </div>
     </div>
@@ -1075,6 +1087,14 @@ function buildPanel(btnX, btnY, contextKey) {
   // Close
   panelEl.querySelector('.close-btn').addEventListener('click', removePanel);
 
+  // Pin
+  const pinBtn = panelEl.querySelector('.pin-btn');
+  pinBtn.addEventListener('click', () => {
+    isPinned = !isPinned;
+    pinBtn.classList.toggle('active', isPinned);
+    pinBtn.title = isPinned ? 'Unpin panel' : 'Pin panel';
+  });
+
   // Retry
   retryBtn.addEventListener('click', () => {
     if (isStreaming) return;
@@ -1121,9 +1141,14 @@ function buildPanel(btnX, btnY, contextKey) {
   makeDraggable(panelEl, panelEl.querySelector('.panel-header'));
 }
 
+function forceClosePanel() {
+  isPinned = false;
+  removePanel();
+}
+
 // mode: 'explain' | 'ask'
 function showPanel(ctx, btnX, btnY, mode) {
-  removePanel();
+  forceClosePanel();
   currentTerm = ctx.selectedText;
   currentContextBefore = ctx.contextBefore;
   currentContextAfter = ctx.contextAfter;
@@ -1176,7 +1201,7 @@ function makeDraggable(panel, handle) {
   let dragging = false, ox = 0, oy = 0;
 
   handle.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.close-btn') || e.target.closest('.retry-btn')) return;
+    if (e.target.closest('.close-btn') || e.target.closest('.retry-btn') || e.target.closest('.pin-btn')) return;
     e.preventDefault();
 
     // Immediately stop entrance transition and lock current rendered position
@@ -1653,6 +1678,7 @@ document.addEventListener('mousedown', (e) => {
   const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
   if (!onTrigger && !onPanel && !onHoverPopup) {
     removeTriggerBtn();
+    if (isPinned) return;
     removePanel();
   }
 });
