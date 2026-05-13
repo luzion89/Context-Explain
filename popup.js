@@ -2,6 +2,172 @@
    Context Explain — popup.js
    ============================================================ */
 
+const UI_STRINGS = {
+  'English': {
+    tabSettings: 'Settings', tabHistory: 'History',
+    sectionAI: 'AI Settings', tabText: 'Text API', tabVision: 'Vision API',
+    labelProvider: 'Provider', labelApiKey: 'API Key', labelModel: 'Model',
+    labelBaseUrl: 'Base URL', labelEndpoint: 'API Endpoint',
+    labelEnableVision: 'Enable Image Analysis',
+    hintVision: 'Enables right-click image explain/ask. Requires a vision-capable model.',
+    labelUseTextConfig: 'Use Text API configuration',
+    hintUseTextConfig: 'Copies Text API endpoint and key. Model must still be set manually.',
+    sectionBehavior: 'Behavior',
+    labelResponseLang: 'Response Language', labelTheme: 'Theme',
+    labelTranslateLang: 'Translation Target Language',
+    btnSave: 'Save Settings', msgSaved: 'Settings saved!',
+    tabHistorySearch: 'Search history…',
+    btnExport: 'Export JSON', btnClear: 'Clear',
+    optLangAuto: 'Auto-detect (match selected text)',
+    themeSystem: 'Follow System', themeLight: 'Light', themeDark: 'Dark',
+    testConnectionTitle: 'Test connection',
+  },
+  'Chinese (Simplified)': {
+    tabSettings: '设置', tabHistory: '历史',
+    sectionAI: 'AI 设置', tabText: '文本 API', tabVision: '视觉 API',
+    labelProvider: '服务商', labelApiKey: 'API 密钥', labelModel: '模型',
+    labelBaseUrl: '基础 URL', labelEndpoint: 'API 端点',
+    labelEnableVision: '启用图片分析',
+    hintVision: '启用右键图片解释/提问功能，需要支持视觉的模型。',
+    labelUseTextConfig: '使用文本 API 配置',
+    hintUseTextConfig: '复制文本 API 的端点和密钥，模型仍需手动填写。',
+    sectionBehavior: '行为设置',
+    labelResponseLang: '回复语言', labelTheme: '主题',
+    labelTranslateLang: '翻译目标语言',
+    btnSave: '保存设置', msgSaved: '设置已保存！',
+    tabHistorySearch: '搜索历史…',
+    btnExport: '导出 JSON', btnClear: '清除',
+    optLangAuto: '自动检测（匹配所选文本）',
+    themeSystem: '跟随系统', themeLight: '浅色', themeDark: '深色',
+    testConnectionTitle: '测试连接',
+  },
+  'Japanese': {
+    tabSettings: '設定', tabHistory: '履歴',
+    sectionAI: 'AI 設定', tabText: 'テキスト API', tabVision: 'ビジョン API',
+    labelProvider: 'プロバイダー', labelApiKey: 'API キー', labelModel: 'モデル',
+    labelBaseUrl: 'ベース URL', labelEndpoint: 'API エンドポイント',
+    labelEnableVision: '画像解析を有効にする',
+    hintVision: '右クリックで画像の説明/質問が可能になります。ビジョン対応モデルが必要です。',
+    labelUseTextConfig: 'テキスト API 設定を使用',
+    hintUseTextConfig: 'テキスト API のエンドポイントとキーをコピーします。モデルは手動で設定してください。',
+    sectionBehavior: '動作設定',
+    labelResponseLang: '回答言語', labelTheme: 'テーマ',
+    labelTranslateLang: '翻訳先言語',
+    btnSave: '設定を保存', msgSaved: '設定が保存されました！',
+    tabHistorySearch: '履歴を検索…',
+    btnExport: 'JSON エクスポート', btnClear: 'クリア',
+    optLangAuto: '自動検出（選択テキストに合わせる）',
+    themeSystem: 'システムに従う', themeLight: 'ライト', themeDark: 'ダーク',
+    testConnectionTitle: '接続テスト',
+  },
+  'Korean': {
+    tabSettings: '설정', tabHistory: '기록',
+    sectionAI: 'AI 설정', tabText: '텍스트 API', tabVision: '비전 API',
+    labelProvider: '공급자', labelApiKey: 'API 키', labelModel: '모델',
+    labelBaseUrl: '기본 URL', labelEndpoint: 'API 엔드포인트',
+    labelEnableVision: '이미지 분석 활성화',
+    hintVision: '우클릭 이미지 설명/질문 기능을 활성화합니다. 비전 지원 모델이 필요합니다.',
+    labelUseTextConfig: '텍스트 API 설정 사용',
+    hintUseTextConfig: '텍스트 API의 엔드포인트와 키를 복사합니다. 모델은 직접 설정해야 합니다.',
+    sectionBehavior: '동작 설정',
+    labelResponseLang: '응답 언어', labelTheme: '테마',
+    labelTranslateLang: '번역 대상 언어',
+    btnSave: '설정 저장', msgSaved: '설정이 저장되었습니다!',
+    tabHistorySearch: '기록 검색…',
+    btnExport: 'JSON 내보내기', btnClear: '지우기',
+    optLangAuto: '자동 감지 (선택한 텍스트에 맞춤)',
+    themeSystem: '시스템 따르기', themeLight: '라이트', themeDark: '다크',
+    testConnectionTitle: '연결 테스트',
+  },
+};
+
+function applyUILanguage(lang) {
+  const s = UI_STRINGS[lang] || UI_STRINGS['English'];
+
+  // Tab nav
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => {
+    if (btn.dataset.tab === 'settings') btn.textContent = s.tabSettings;
+    if (btn.dataset.tab === 'history') btn.textContent = s.tabHistory;
+  });
+
+  // AI Settings section title
+  const aiSectionTitle = document.querySelector('#page-settings .section-title');
+  if (aiSectionTitle) aiSectionTitle.textContent = s.sectionAI;
+
+  // AI sub-tabs
+  document.querySelectorAll('.ai-tab-btn').forEach(btn => {
+    if (btn.dataset.aiTab === 'text') btn.textContent = s.tabText;
+    if (btn.dataset.aiTab === 'vision') btn.textContent = s.tabVision;
+  });
+
+  // Labels — use data attributes for targeting
+  const setLabel = (forId, text) => {
+    const el = document.querySelector(`label[for="${forId}"]`);
+    if (el) el.textContent = text;
+  };
+  setLabel('provider', s.labelProvider);
+  setLabel('apiKey', s.labelApiKey);
+  setLabel('apiModel', s.labelModel);
+  setLabel('apiBaseUrl', s.labelBaseUrl);
+  setLabel('vision-endpoint', s.labelEndpoint);
+  setLabel('vision-key', s.labelApiKey);
+  setLabel('vision-model', s.labelModel);
+  setLabel('responseLang', s.labelResponseLang);
+  setLabel('theme-select', s.labelTheme);
+  setLabel('translate-lang', s.labelTranslateLang);
+
+  // Checkbox labels (span inside label)
+  const visionEnabledSpan = document.querySelector('label.checkbox-label:has(#vision-enabled) span');
+  if (visionEnabledSpan) visionEnabledSpan.textContent = s.labelEnableVision;
+  const useTextSpan = document.querySelector('label.checkbox-label:has(#vision-use-text-config) span');
+  if (useTextSpan) useTextSpan.textContent = s.labelUseTextConfig;
+
+  // Hints
+  const visionHint = document.querySelector('#vision-enabled')?.closest('.setting-group')?.querySelector('.hint');
+  if (visionHint) visionHint.textContent = s.hintVision;
+  const useTextHint = document.querySelector('#vision-use-text-config')?.closest('.setting-group')?.querySelector('.hint');
+  if (useTextHint) useTextHint.textContent = s.hintUseTextConfig;
+
+  // Behavior section title (second .section-title)
+  const sectionTitles = document.querySelectorAll('.section-title');
+  if (sectionTitles[1]) sectionTitles[1].textContent = s.sectionBehavior;
+
+  // Save button
+  const saveBtn = document.querySelector('.btn-save');
+  if (saveBtn) saveBtn.textContent = s.btnSave;
+
+  // History search placeholder
+  const histSearch = document.querySelector('#histSearch');
+  if (histSearch) histSearch.placeholder = s.tabHistorySearch;
+
+  // Export / Clear buttons
+  const btnExport = document.querySelector('#btnExport');
+  if (btnExport) btnExport.textContent = s.btnExport;
+  const btnClear = document.querySelector('#btnClear');
+  if (btnClear) btnClear.textContent = s.btnClear;
+
+  // Test connection button tooltips
+  document.querySelectorAll('.btn-model-check').forEach(btn => {
+    btn.title = s.testConnectionTitle;
+  });
+
+  // Response Language select — "Auto-detect" option
+  const autoOpt = document.querySelector('#responseLang option[value="auto"]');
+  if (autoOpt) autoOpt.textContent = s.optLangAuto;
+
+  // Theme select options
+  const themeSelect = document.querySelector('#theme-select');
+  if (themeSelect) {
+    const opts = themeSelect.options;
+    for (const opt of opts) {
+      if (opt.value === 'system') opt.textContent = s.themeSystem;
+      if (opt.value === 'light') opt.textContent = s.themeLight;
+      if (opt.value === 'dark') opt.textContent = s.themeDark;
+    }
+  }
+}
+
 const PROVIDER_DEFAULTS = {
   openai:    { placeholder: 'gpt-4o-mini',                hint: 'e.g. gpt-4o, gpt-4o-mini',             keyHint: 'platform.openai.com' },
   anthropic: { placeholder: 'claude-3-5-haiku-20241022',  hint: 'e.g. claude-opus-4-5, claude-3-5-haiku',keyHint: 'console.anthropic.com' },
@@ -105,6 +271,11 @@ function updateVisionFieldsState() {
 
 visionEnabledEl.addEventListener('change', updateVisionFieldsState);
 
+responseLangEl.addEventListener('change', () => {
+  const lang = responseLangEl.value;
+  applyUILanguage(lang !== 'auto' ? lang : 'English');
+});
+
 visionUseTextEl.addEventListener('change', function() {
   const endpointEl = $('vision-endpoint');
   const keyEl = $('vision-key');
@@ -134,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const theme = data.theme || 'system';
       themeSelectEl.value = theme;
       applyTheme(theme);
+      applyUILanguage(data.responseLang && data.responseLang !== 'auto' ? data.responseLang : 'English');
       translateLangEl.value = data.translateLang || 'Chinese (Simplified)';
       updateProviderUI(p);
 
@@ -205,7 +377,8 @@ saveBtnEl.addEventListener('click', () => {
     if (chrome.runtime.lastError) showStatus('Error: ' + chrome.runtime.lastError.message, 'warn');
     else {
       applyTheme(themeSelectEl.value);
-      showStatus('Settings saved!', 'success');
+      const s = UI_STRINGS[responseLangEl.value] || UI_STRINGS['English'];
+      showStatus(s.msgSaved, 'success');
     }
   });
 });
@@ -239,9 +412,14 @@ function loadHistory() {
 function renderHistList(items) {
   const list = $('historyList');
   const q = filterQuery.toLowerCase();
-  const filtered = q ? items.filter(e =>
-    e.term.toLowerCase().includes(q) || (e.explanation || '').toLowerCase().includes(q)
-  ) : items;
+  const filtered = q ? items.filter(e => {
+    if (e.term.toLowerCase().includes(q)) return true;
+    if ((e.explanation || '').toLowerCase().includes(q)) return true;
+    if (e.followUps && e.followUps.some(fu =>
+      (fu.q || '').toLowerCase().includes(q) || (fu.a || '').toLowerCase().includes(q)
+    )) return true;
+    return false;
+  }) : items;
 
   if (filtered.length === 0) {
     list.innerHTML = `<div class="hist-empty"><div class="hist-empty-icon">◎</div>${q ? 'No results for "' + filterQuery + '"' : 'No history yet.<br>Select text on any page to get started.'}</div>`;
