@@ -552,8 +552,8 @@
       align-items: center;
       gap: 8px;
       cursor: pointer;
-      color: var(--text-primary);
-      font-size: 13px;
+      color: var(--text-secondary);
+      font-size: 11px;
     }
     .checkbox-label input[type="checkbox"] {
       width: 14px; height: 14px;
@@ -566,7 +566,7 @@
     .ai-settings-tabs {
       display: flex;
       gap: 2px;
-      padding: 0 18px 12px;
+      padding: 0 0 12px;
       border-bottom: 1px solid var(--border);
       margin-bottom: 4px;
     }
@@ -620,6 +620,36 @@
     /* ── Scrollbar global ── */
     ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+    /* Model wrapper with inline check button */
+    .model-input-wrapper { position: relative; }
+    .model-input-wrapper input { padding-right: 32px; }
+    .btn-model-check {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-hint);
+      font-size: 13px; cursor: pointer; padding: 2px 3px;
+      border-radius: 3px; line-height: 1; transition: color 0.15s;
+      font-family: inherit;
+    }
+    .btn-model-check:hover { color: var(--text-secondary); }
+    .btn-model-check.spinning {
+      animation: ctx-check-spin 0.7s linear infinite;
+    }
+    .btn-model-check.check-success { color: var(--success); }
+    .btn-model-check.check-error { color: var(--error); }
+    @keyframes ctx-check-spin {
+      from { transform: translateY(-50%) rotate(0deg); }
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+    .test-inline-result {
+      font-size: 11.5px;
+      color: var(--text-hint);
+      margin-top: 4px;
+      line-height: 1.4;
+      display: none;
+    }
+    .test-inline-result.success { color: var(--success); }
+    .test-inline-result.error { color: var(--error); }
   </style>
 </head>
 <body>
@@ -669,28 +699,21 @@
       </div>
       <div class="setting-group">
         <label for="apiModel">Model</label>
-        <input type="text" id="apiModel" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+        <div class="model-input-wrapper">
+          <input type="text" id="apiModel" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+          <button type="button" id="test-text-api" class="btn-model-check" title="Test connection">✓</button>
+        </div>
         <div class="field-hint" id="modelHint"></div>
+        <div id="test-text-result" class="test-inline-result"></div>
       </div>
       <div class="setting-group" id="baseUrlGroup" style="display:none">
         <label for="apiBaseUrl">Base URL</label>
         <input type="text" id="apiBaseUrl" placeholder="https://your-api.example.com/v1" autocomplete="off" spellcheck="false">
       </div>
-      <div class="test-connection-row">
-        <button type="button" id="test-text-api" class="btn-test">Test Connection</button>
-        <div id="test-text-result" class="test-result" style="display:none"></div>
-      </div>
     </div>
 
     <!-- Vision API Tab -->
     <div class="ai-tab-panel" id="ai-tab-vision">
-      <div class="setting-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="vision-enabled">
-          <span>Enable Image Analysis</span>
-        </label>
-        <p class="hint">Enables right-click image explain/ask. Requires a vision-capable model.</p>
-      </div>
       <div class="setting-group">
         <label for="vision-endpoint">API Endpoint</label>
         <input type="text" id="vision-endpoint" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
@@ -704,7 +727,18 @@
       </div>
       <div class="setting-group">
         <label for="vision-model">Model</label>
-        <input type="text" id="vision-model" placeholder="gpt-4o / gemini-pro-vision" autocomplete="off" spellcheck="false">
+        <div class="model-input-wrapper">
+          <input type="text" id="vision-model" placeholder="gpt-4o / gemini-pro-vision" autocomplete="off" spellcheck="false">
+          <button type="button" id="test-vision-api" class="btn-model-check" title="Test connection">✓</button>
+        </div>
+        <div id="test-vision-result" class="test-inline-result"></div>
+      </div>
+      <div class="setting-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="vision-enabled">
+          <span>Enable Image Analysis</span>
+        </label>
+        <p class="hint">Enables right-click image explain/ask. Requires a vision-capable model.</p>
       </div>
       <div class="setting-group">
         <label class="checkbox-label">
@@ -712,10 +746,6 @@
           <span>Use Text API configuration</span>
         </label>
         <p class="hint">Copies Text API endpoint and key. Model must still be set manually.</p>
-      </div>
-      <div class="test-connection-row">
-        <button type="button" id="test-vision-api" class="btn-test">Test Connection</button>
-        <div id="test-vision-result" class="test-result" style="display:none"></div>
       </div>
     </div>
   </div>

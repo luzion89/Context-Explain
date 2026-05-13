@@ -416,29 +416,41 @@ function classifyApiError(e, status) {
   if (status === 429) return 'Rate limited (429). Please try again later.';
   if (status >= 500) return `Server error (${status}). The API provider may have issues.`;
   if (e.message?.includes('Failed to fetch')) return 'Network error. Check your internet connection and endpoint URL.';
-  return `Connection failed: ${(e.message || 'Unknown error').substring(0, 120)}`;
-}
-
-function showTestResult(resultEl, success, message) {
-  resultEl.style.display = 'block';
-  resultEl.className = 'test-result ' + (success ? 'success' : 'error');
-  resultEl.textContent = (success ? '✓ ' : '✗ ') + message;
+  return `Connection failed: ${(e.message || 'Unknown error').substring(0, 200)}`;
 }
 
 async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
-  if (btn.disabled) return;
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Testing…';
+  if (btn.dataset.testing === '1') return;
+  btn.dataset.testing = '1';
+  btn.textContent = '⟳';
+  btn.className = 'btn-model-check spinning';
   resultEl.style.display = 'none';
+  resultEl.className = 'test-inline-result';
 
-  if (!endpoint) { showTestResult(resultEl, false, 'Endpoint is not configured.'); btn.disabled = false; btn.textContent = originalText; return; }
-  if (!apiKey)   { showTestResult(resultEl, false, 'API key is not configured.');  btn.disabled = false; btn.textContent = originalText; return; }
-  if (!model)    { showTestResult(resultEl, false, 'Model is not configured.');     btn.disabled = false; btn.textContent = originalText; return; }
+  const resetBtn = (success) => {
+    btn.textContent = success ? '✓' : '✗';
+    btn.className = 'btn-model-check ' + (success ? 'check-success' : 'check-error');
+    btn.dataset.testing = '';
+    setTimeout(() => {
+      btn.textContent = '✓';
+      btn.className = 'btn-model-check';
+    }, 4000);
+  };
+
+  const showResult = (success, message) => {
+    resultEl.style.display = 'block';
+    resultEl.className = 'test-inline-result ' + (success ? 'success' : 'error');
+    resultEl.textContent = (success ? '✓ ' : '✗ ') + message;
+    resetBtn(success);
+  };
+
+  if (!endpoint) { showResult(false, 'Endpoint is not configured.'); return; }
+  if (!apiKey)   { showResult(false, 'API key is not configured.');  return; }
+  if (!model)    { showResult(false, 'Model is not configured.');     return; }
 
   let url;
   try { url = new URL(endpoint.replace(/\/$/, '') + '/chat/completions'); }
-  catch { showTestResult(resultEl, false, 'Invalid endpoint URL format.'); btn.disabled = false; btn.textContent = originalText; return; }
+  catch { showResult(false, 'Invalid endpoint URL format.'); return; }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
@@ -471,23 +483,32 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
+      console.error('[Context Explain] API test error:', resp.status, body);
       let detail = '';
-      try { detail = JSON.parse(body)?.error?.message || ''; } catch {}
+      try {
+        const parsed = JSON.parse(body);
+        detail = parsed?.error?.message || '';
+        // Some providers (e.g. OpenRouter) include more detail in metadata
+        const meta = parsed?.error?.metadata;
+        if (meta) {
+          const extra = meta.raw || meta.details || JSON.stringify(meta);
+          if (extra && extra !== '{}') detail += (detail ? ' — ' : '') + extra;
+        }
+      } catch {}
       throw Object.assign(new Error(detail || `HTTP ${resp.status}`), { status: resp.status });
     }
 
     const json = await resp.json().catch(() => null);
+    console.log('[Context Explain] API test success:', json);
     if (!json?.choices?.[0]) throw new Error('Unexpected response structure from API.');
 
     const timestamp = new Date().toLocaleTimeString();
-    showTestResult(resultEl, true, `Connected successfully — ${latency}ms latency (tested at ${timestamp})`);
+    showResult(true, `Connected — ${latency}ms (${timestamp})`);
 
   } catch (e) {
     clearTimeout(timeoutId);
-    showTestResult(resultEl, false, classifyApiError(e, e.status || httpStatus));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+    console.error('[Context Explain] API test exception:', e);
+    showResult(false, classifyApiError(e, e.status || httpStatus));
   }
 }
 
