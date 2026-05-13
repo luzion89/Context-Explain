@@ -16,12 +16,39 @@ const apiKeyEl        = $('apiKey');
 const apiModelEl      = $('apiModel');
 const apiBaseUrlEl    = $('apiBaseUrl');
 const responseLangEl  = $('responseLang');
+const themeSelectEl   = $('theme-select');
+const translateLangEl = $('translate-lang');
 const saveBtnEl       = $('saveBtn');
 const statusMsgEl     = $('statusMsg');
 const toggleKeyEl     = $('toggleKey');
 const fieldBaseUrl    = $('fieldBaseUrl');
 const keyHintEl       = $('keyHint');
 const modelHintEl     = $('modelHint');
+
+// ─── Vision API DOM refs ──────────────────────────────────────────────────────
+const visionEnabledEl      = $('vision-enabled');
+const visionEndpointEl     = $('vision-endpoint');
+const visionKeyEl          = $('vision-key');
+const visionKeyToggleEl    = $('vision-key-toggle');
+const visionModelEl        = $('vision-model');
+const visionUseTextEl      = $('vision-use-text-config');
+const visionConfigFieldsEl = $('vision-config-fields');
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme(theme) {
+  const resolved = (theme === 'system')
+    ? (_sysDark.matches ? 'dark' : 'light')
+    : theme;
+  document.body.dataset.theme = resolved;
+}
+
+_sysDark.addEventListener('change', () => {
+  if (themeSelectEl && themeSelectEl.value === 'system') {
+    applyTheme('system');
+  }
+});
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -51,10 +78,29 @@ toggleKeyEl.addEventListener('click', () => {
   toggleKeyEl.textContent = show ? 'hide' : 'show';
 });
 
+// ─── Vision API: key toggle ───────────────────────────────────────────────────
+visionKeyToggleEl.addEventListener('click', () => {
+  visionKeyEl.type = visionKeyEl.type === 'password' ? 'text' : 'password';
+});
+
+// ─── Vision API: "Use Text API config" checkbox ───────────────────────────────
+visionUseTextEl.addEventListener('change', () => {
+  if (visionUseTextEl.checked) {
+    visionEndpointEl.value = apiBaseUrlEl.value || '';
+    visionKeyEl.value = apiKeyEl.value || '';
+    visionEndpointEl.disabled = true;
+    visionKeyEl.disabled = true;
+  } else {
+    visionEndpointEl.disabled = false;
+    visionKeyEl.disabled = false;
+  }
+});
+
 // ─── Settings: Load ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(
-    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang'],
+    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme','translateLang',
+     'visionEnabled','visionApiEndpoint','visionApiKey','visionApiModel','visionUseTextConfig'],
     (data) => {
       const p = data.apiProvider || 'openai';
       providerEl.value = p;
@@ -62,7 +108,22 @@ document.addEventListener('DOMContentLoaded', () => {
       apiModelEl.value = data.apiModel || '';
       apiBaseUrlEl.value = data.apiBaseUrl || '';
       responseLangEl.value = data.responseLang || 'auto';
+      const theme = data.theme || 'system';
+      themeSelectEl.value = theme;
+      applyTheme(theme);
+      translateLangEl.value = data.translateLang || 'Chinese (Simplified)';
       updateProviderUI(p);
+
+      // Vision settings
+      visionEnabledEl.checked   = data.visionEnabled || false;
+      visionEndpointEl.value    = data.visionApiEndpoint || '';
+      visionKeyEl.value         = data.visionApiKey || '';
+      visionModelEl.value       = data.visionApiModel || '';
+      visionUseTextEl.checked   = data.visionUseTextConfig || false;
+      if (data.visionUseTextConfig) {
+        visionEndpointEl.disabled = true;
+        visionKeyEl.disabled = true;
+      }
     }
   );
 });
@@ -107,9 +168,21 @@ saveBtnEl.addEventListener('click', () => {
     apiModel: apiModel || PROVIDER_DEFAULTS[provider]?.placeholder || 'gpt-4o-mini',
     apiBaseUrl,
     responseLang: responseLangEl.value,
+    theme: themeSelectEl.value,
+    translateLang: translateLangEl.value,
+    // Vision settings — when 'Use Text API config' is checked, persist the
+    // resolved text-API values so content.js can read visionApiKey directly.
+    visionEnabled:       visionEnabledEl.checked,
+    visionApiEndpoint:   visionUseTextEl.checked ? apiBaseUrl : visionEndpointEl.value.trim(),
+    visionApiKey:        visionUseTextEl.checked ? apiKey     : visionKeyEl.value.trim(),
+    visionApiModel:      visionModelEl.value.trim(),
+    visionUseTextConfig: visionUseTextEl.checked,
   }, () => {
     if (chrome.runtime.lastError) showStatus('Error: ' + chrome.runtime.lastError.message, 'warn');
-    else showStatus('Settings saved!', 'success');
+    else {
+      applyTheme(themeSelectEl.value);
+      showStatus('Settings saved!', 'success');
+    }
   });
 });
 
@@ -156,6 +229,13 @@ function renderHistList(items) {
       || (entry.followUps && entry.followUps[0] ? `Q: ${entry.followUps[0].q}` : '');
     const preview = previewText.replace(/[#*`>\n]/g, ' ').replace(/\s+/g,' ').trim().slice(0, 100);
     const fuCount = (entry.followUps || []).length;
+    const modeBadge = entry.mode === 'translate'
+      ? `<span class="hist-followup-badge" title="Translation">⇌</span>`
+      : entry.mode === 'ask'
+        ? `<span class="hist-followup-badge" title="Ask">?</span>`
+        : entry.mode === 'image'
+          ? `<span class="hist-followup-badge" title="Image">🖼</span>`
+          : '';
     return `<div class="hist-item" data-id="${entry.id}">
       <div class="hist-item-main">
         <div class="hist-term">${escHtml(entry.term)}</div>
@@ -163,6 +243,7 @@ function renderHistList(items) {
         <div class="hist-meta">
           <span class="hist-time">${formatTs(entry.ts)}</span>
           <span class="hist-site">${escHtml(hostnameOf(entry.url))}</span>
+          ${modeBadge}
           ${fuCount > 0 ? `<span class="hist-followup-badge">+${fuCount} Q</span>` : ''}
         </div>
       </div>
@@ -203,7 +284,19 @@ function showDetail(entry) {
 
   const body = $('detailBody');
   // explanation is empty for ask-mode entries; followUps holds the Q&A
-  let html = entry.explanation
+  let html = '';
+
+  // Show image thumbnail for image-mode entries
+  if (entry.mode === 'image' && entry.imageUrl) {
+    html += `<div style="margin-bottom:12px;text-align:center">
+      <a href="${escHtml(entry.imageUrl)}" target="_blank" rel="noopener" title="Click to view full image">
+        <img src="${escHtml(entry.imageUrl)}" style="max-width:100%;max-height:140px;object-fit:contain;border-radius:6px;border:1px solid var(--border);cursor:zoom-in"
+             onerror="this.style.display='none'">
+      </a>
+    </div>`;
+  }
+
+  html += entry.explanation
     ? `<div class="detail-explanation">${mdToSimpleHtml(entry.explanation)}</div>`
     : '';
 
@@ -300,6 +393,130 @@ function mdToSimpleHtml(text) {
   }
   return html;
 }
+
+// ─── API Connection Test ───────────────────────────────────────────────────────
+const TEST_TIMEOUT_MS = 10000;
+
+function classifyApiError(e, status) {
+  if (e.name === 'AbortError') return 'Request timed out (10s). Check your endpoint URL and network.';
+  if (status === 401) return 'Authentication failed (401). Check your API key.';
+  if (status === 403) return 'Access forbidden (403). Check API key permissions.';
+  if (status === 404) return 'Endpoint not found (404). Check the API base URL.';
+  if (status === 429) return 'Rate limited (429). Please try again later.';
+  if (status >= 500) return `Server error (${status}). The API provider may have issues.`;
+  if (e.message?.includes('Failed to fetch')) return 'Network error. Check your internet connection and endpoint URL.';
+  return `Connection failed: ${(e.message || 'Unknown error').substring(0, 120)}`;
+}
+
+function showTestResult(resultEl, success, message) {
+  resultEl.style.display = 'block';
+  resultEl.className = 'test-result ' + (success ? 'success' : 'error');
+  resultEl.textContent = (success ? '✓ ' : '✗ ') + message;
+}
+
+async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Testing…';
+  resultEl.style.display = 'none';
+
+  if (!endpoint) { showTestResult(resultEl, false, 'Endpoint is not configured.'); btn.disabled = false; btn.textContent = originalText; return; }
+  if (!apiKey)   { showTestResult(resultEl, false, 'API key is not configured.');  btn.disabled = false; btn.textContent = originalText; return; }
+  if (!model)    { showTestResult(resultEl, false, 'Model is not configured.');     btn.disabled = false; btn.textContent = originalText; return; }
+
+  let url;
+  try { url = new URL(endpoint.replace(/\/$/, '') + '/chat/completions'); }
+  catch { showTestResult(resultEl, false, 'Invalid endpoint URL format.'); btn.disabled = false; btn.textContent = originalText; return; }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  const startTime = Date.now();
+  let httpStatus = null;
+
+  try {
+    const TEST_IMAGE_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg==';
+
+    const messages = isVision ? [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: TEST_IMAGE_B64 } },
+        { type: 'text', text: 'Describe this image in 3 words.' }
+      ]
+    }] : [{
+      role: 'user',
+      content: 'Reply with exactly: OK'
+    }];
+
+    const resp = await fetch(url.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model, messages, max_tokens: 10, stream: false }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    httpStatus = resp.status;
+    const latency = Date.now() - startTime;
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      let detail = '';
+      try { detail = JSON.parse(body)?.error?.message || ''; } catch {}
+      throw Object.assign(new Error(detail || `HTTP ${resp.status}`), { status: resp.status });
+    }
+
+    const json = await resp.json().catch(() => null);
+    if (!json?.choices?.[0]) throw new Error('Unexpected response structure from API.');
+
+    const timestamp = new Date().toLocaleTimeString();
+    showTestResult(resultEl, true, `Connected successfully — ${latency}ms latency (tested at ${timestamp})`);
+
+  } catch (e) {
+    clearTimeout(timeoutId);
+    showTestResult(resultEl, false, classifyApiError(e, e.status || httpStatus));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// Wire up test buttons after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  $('test-text-api')?.addEventListener('click', () => {
+    const provider = providerEl.value;
+    let endpoint = apiBaseUrlEl.value.trim();
+    if (!endpoint) {
+      const defaults = { openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1' };
+      endpoint = defaults[provider] || '';
+    }
+    runApiTest(
+      $('test-text-api'),
+      $('test-text-result'),
+      endpoint,
+      apiKeyEl.value.trim(),
+      (apiModelEl.value || PROVIDER_DEFAULTS[provider]?.placeholder || '').trim(),
+      false
+    );
+  });
+
+  $('test-vision-api')?.addEventListener('click', () => {
+    const endpoint = visionUseTextEl.checked
+      ? (apiBaseUrlEl.value.trim() || (() => {
+          const defaults = { openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1' };
+          return defaults[providerEl.value] || '';
+        })())
+      : visionEndpointEl.value.trim();
+    const apiKey = visionUseTextEl.checked ? apiKeyEl.value.trim() : visionKeyEl.value.trim();
+    runApiTest(
+      $('test-vision-api'),
+      $('test-vision-result'),
+      endpoint,
+      apiKey,
+      visionModelEl.value.trim(),
+      true
+    );
+  });
+});
 
 // ─── Mermaid via sandboxed iframe (bypasses popup CSP) ───────────────────────
 let _sandboxIframe = null;
