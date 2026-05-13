@@ -200,7 +200,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
 
   .ctx-resize-handle {
-    position: absolute; opacity: 0; transition: opacity 0.15s;
+    position: absolute; opacity: 0; transition: opacity 0.2s;
     z-index: 10;
   }
   .ctx-resize-handle:hover { opacity: 1; }
@@ -222,10 +222,30 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .ctx-resize-sw::after { left: 4px; }
   .ctx-resize-se::after { right: 4px; transform: scaleX(-1); }
 
-  /* Edge handles */
+  /* Edge handles — visible indicator: a short centered line */
   .ctx-resize-e  { top: 16px; right: -3px; width: 6px; bottom: 16px; cursor: ew-resize; }
   .ctx-resize-w  { top: 16px; left: -3px;  width: 6px; bottom: 16px; cursor: ew-resize; }
   .ctx-resize-s  { left: 16px; bottom: -3px; height: 6px; right: 16px; cursor: ns-resize; }
+
+  .ctx-resize-e::after,
+  .ctx-resize-w::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px; height: 24px;
+    border-radius: 2px;
+    background: var(--accent-border);
+  }
+  .ctx-resize-s::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px; height: 2px;
+    border-radius: 2px;
+    background: var(--accent-border);
+  }
 
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
