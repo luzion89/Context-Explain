@@ -394,6 +394,130 @@ function mdToSimpleHtml(text) {
   return html;
 }
 
+// ─── API Connection Test ───────────────────────────────────────────────────────
+const TEST_TIMEOUT_MS = 10000;
+
+function classifyApiError(e, status) {
+  if (e.name === 'AbortError') return 'Request timed out (10s). Check your endpoint URL and network.';
+  if (status === 401) return 'Authentication failed (401). Check your API key.';
+  if (status === 403) return 'Access forbidden (403). Check API key permissions.';
+  if (status === 404) return 'Endpoint not found (404). Check the API base URL.';
+  if (status === 429) return 'Rate limited (429). Please try again later.';
+  if (status >= 500) return `Server error (${status}). The API provider may have issues.`;
+  if (e.message?.includes('Failed to fetch')) return 'Network error. Check your internet connection and endpoint URL.';
+  return `Connection failed: ${(e.message || 'Unknown error').substring(0, 120)}`;
+}
+
+function showTestResult(resultEl, success, message) {
+  resultEl.style.display = 'block';
+  resultEl.className = 'test-result ' + (success ? 'success' : 'error');
+  resultEl.textContent = (success ? '✓ ' : '✗ ') + message;
+}
+
+async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Testing…';
+  resultEl.style.display = 'none';
+
+  if (!endpoint) { showTestResult(resultEl, false, 'Endpoint is not configured.'); btn.disabled = false; btn.textContent = originalText; return; }
+  if (!apiKey)   { showTestResult(resultEl, false, 'API key is not configured.');  btn.disabled = false; btn.textContent = originalText; return; }
+  if (!model)    { showTestResult(resultEl, false, 'Model is not configured.');     btn.disabled = false; btn.textContent = originalText; return; }
+
+  let url;
+  try { url = new URL(endpoint.replace(/\/$/, '') + '/chat/completions'); }
+  catch { showTestResult(resultEl, false, 'Invalid endpoint URL format.'); btn.disabled = false; btn.textContent = originalText; return; }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  const startTime = Date.now();
+  let httpStatus = null;
+
+  try {
+    const TEST_IMAGE_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg==';
+
+    const messages = isVision ? [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: TEST_IMAGE_B64 } },
+        { type: 'text', text: 'Describe this image in 3 words.' }
+      ]
+    }] : [{
+      role: 'user',
+      content: 'Reply with exactly: OK'
+    }];
+
+    const resp = await fetch(url.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model, messages, max_tokens: 10, stream: false }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    httpStatus = resp.status;
+    const latency = Date.now() - startTime;
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      let detail = '';
+      try { detail = JSON.parse(body)?.error?.message || ''; } catch {}
+      throw Object.assign(new Error(detail || `HTTP ${resp.status}`), { status: resp.status });
+    }
+
+    const json = await resp.json().catch(() => null);
+    if (!json?.choices?.[0]) throw new Error('Unexpected response structure from API.');
+
+    const timestamp = new Date().toLocaleTimeString();
+    showTestResult(resultEl, true, `Connected successfully — ${latency}ms latency (tested at ${timestamp})`);
+
+  } catch (e) {
+    clearTimeout(timeoutId);
+    showTestResult(resultEl, false, classifyApiError(e, e.status || httpStatus));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// Wire up test buttons after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  $('test-text-api')?.addEventListener('click', () => {
+    const provider = providerEl.value;
+    let endpoint = apiBaseUrlEl.value.trim();
+    if (!endpoint) {
+      const defaults = { openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1' };
+      endpoint = defaults[provider] || '';
+    }
+    runApiTest(
+      $('test-text-api'),
+      $('test-text-result'),
+      endpoint,
+      apiKeyEl.value.trim(),
+      (apiModelEl.value || PROVIDER_DEFAULTS[provider]?.placeholder || '').trim(),
+      false
+    );
+  });
+
+  $('test-vision-api')?.addEventListener('click', () => {
+    const endpoint = visionUseTextEl.checked
+      ? (apiBaseUrlEl.value.trim() || (() => {
+          const defaults = { openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1' };
+          return defaults[providerEl.value] || '';
+        })())
+      : visionEndpointEl.value.trim();
+    const apiKey = visionUseTextEl.checked ? apiKeyEl.value.trim() : visionKeyEl.value.trim();
+    runApiTest(
+      $('test-vision-api'),
+      $('test-vision-result'),
+      endpoint,
+      apiKey,
+      visionModelEl.value.trim(),
+      true
+    );
+  });
+});
+
 // ─── Mermaid via sandboxed iframe (bypasses popup CSP) ───────────────────────
 let _sandboxIframe = null;
 let _sandboxReady = false;
