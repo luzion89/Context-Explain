@@ -532,6 +532,8 @@ function attachMarkHover(mark, contextKey) {
 
     // ── View History button ──
     const viewBtn = document.createElement('button');
+    // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
+    // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
     viewBtn.textContent = '✦';
     viewBtn.title = 'View explanation';
     Object.assign(viewBtn.style, {
@@ -797,6 +799,8 @@ function showTriggerBtn(x, y) {
     pointerEvents: 'all',
   });
 
+  // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
+  // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
   const btnStyle = {
     height: '26px',
     borderRadius: '13px',
@@ -1417,7 +1421,7 @@ function handleStreamFailure(message) {
       currentResponseBlock.innerHTML =
         renderMarkdown(partial) +
         `<div style="margin-top:10px;padding:6px 10px;background:rgba(200,80,80,0.07);border-radius:5px;border:1px solid rgba(200,80,80,0.15)">
-           <span style="color:#c06060;font-size:12px">⚠ Stream interrupted — partial response shown.</span>
+           <span style="color:var(--error);font-size:12px">⚠ Stream interrupted — partial response shown.</span>
          </div>`;
     } else {
       currentResponseBlock.innerHTML = `<span class="error-msg">${escHtml(message)}</span>`;
