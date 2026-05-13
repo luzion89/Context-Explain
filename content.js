@@ -2,6 +2,23 @@
    Context Explain — content.js
    ============================================================ */
 
+// ─── Keyboard Event Isolation ────────────────────────────────────────────────
+// Prevents keyboard events inside the Shadow DOM panel from leaking to the page.
+
+function setupKeyboardIsolation(shadowRoot) {
+  const handler = (e) => {
+    // Allow Escape to propagate so it can close the panel
+    if (e.key === 'Escape') return;
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    // Do NOT call preventDefault() — preserve typing, copy/paste, IME
+  };
+  // Use capture phase (true) to intercept before any other shadow-root listeners
+  shadowRoot.addEventListener('keydown', handler, true);
+  shadowRoot.addEventListener('keypress', handler, true);
+  shadowRoot.addEventListener('keyup', handler, true);
+}
+
 // ─── Markdown + KaTeX Renderer ───────────────────────────────────────────────
 // marked.js handles all Markdown; KaTeX handles LaTeX math.
 
@@ -967,6 +984,7 @@ function buildPanel(btnX, btnY, contextKey) {
   document.body.appendChild(panelRoot);
 
   shadowRoot = panelRoot.attachShadow({ mode: 'open' });
+  setupKeyboardIsolation(shadowRoot);
 
   const styleEl = document.createElement('style');
   styleEl.textContent = PANEL_STYLES;
