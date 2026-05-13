@@ -541,6 +541,39 @@
     .setting-group { margin-bottom: 11px; }
     .setting-group:last-child { margin-bottom: 0; }
 
+    .hint {
+      font-size: 11.5px;
+      color: var(--text-hint);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+    .checkbox-label input[type="checkbox"] {
+      width: 14px; height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Vision key wrapper */
+    .api-key-wrapper { position: relative; }
+    .api-key-wrapper input { padding-right: 40px; }
+    .toggle-key-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-hint);
+      font-size: 13px; cursor: pointer; padding: 2px 4px;
+      border-radius: 3px; line-height: 1;
+      transition: color 0.15s;
+    }
+    .toggle-key-btn:hover { color: var(--text-secondary); }
+
     /* ── Scrollbar global ── */
     ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
@@ -597,6 +630,46 @@
       <label for="apiBaseUrl">Base URL</label>
       <input type="text" id="apiBaseUrl" placeholder="https://your-api.example.com/v1" autocomplete="off" spellcheck="false">
       <div class="field-hint">Path before <code style="color:var(--text-secondary);background:var(--border);padding:1px 4px;border-radius:3px">/chat/completions</code></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Vision API (Image Analysis)</div>
+
+    <div class="setting-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="vision-enabled">
+        <span>Enable Image Analysis</span>
+      </label>
+      <p class="hint">Enables right-click image explain/ask. Requires a vision-capable model.</p>
+    </div>
+
+    <div id="vision-config-fields">
+      <div class="setting-group">
+        <label for="vision-endpoint">Vision API Endpoint</label>
+        <input type="url" id="vision-endpoint" placeholder="https://api.openai.com/v1">
+      </div>
+
+      <div class="setting-group">
+        <label for="vision-key">Vision API Key</label>
+        <div class="api-key-wrapper">
+          <input type="password" id="vision-key" placeholder="Vision API key" autocomplete="off">
+          <button type="button" class="toggle-key-btn" id="vision-key-toggle" title="Show/hide key">👁</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label for="vision-model">Vision Model</label>
+        <input type="text" id="vision-model" placeholder="gpt-4o / gemini-pro-vision">
+      </div>
+
+      <div class="setting-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="vision-use-text-config">
+          <span>Use Text API configuration (copies endpoint &amp; key)</span>
+        </label>
+        <p class="hint">Model must still be set manually.</p>
+      </div>
     </div>
   </div>
 
