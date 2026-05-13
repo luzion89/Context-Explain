@@ -378,9 +378,9 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .followup-input:focus { border-color: var(--input-border-focus); box-shadow: 0 0 0 3px var(--focus-ring); }
   .followup-send {
     width: 32px; height: 34px; flex-shrink: 0; border-radius: 8px;
-    background: var(--accent); border: none; color: #0a0a0c; font-size: 15px;
+    background: var(--accent); border: none; color: #0a0a0c; font-size: 13px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, opacity 0.15s; font-weight: 700;
+    transition: background 0.15s, opacity 0.15s; font-weight: 400;
   }
   .followup-send:hover { filter: brightness(1.1); }
   .followup-send:disabled { opacity: 0.3; cursor: default; }
@@ -1091,7 +1091,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
         </div>
         <div class="followup-area">
           <textarea class="followup-input" placeholder="Ask a follow-up question…" rows="1"></textarea>
-          <button class="followup-send" disabled title="Send">↑</button>
+          <button class="followup-send" disabled title="Send">➤</button>
         </div>
       </div>
     </div>
@@ -2161,6 +2161,11 @@ async function showImagePanel(srcUrl, mode, visionCfg) {
 
   if (mode === 'image-explain') {
     if (footerStatus) { footerStatus.textContent = 'Analyzing image…'; footerStatus.className = 'footer-status streaming'; }
+    // Clear the default "Thinking…" block created by buildPanel — runImageFetch creates its own
+    if (currentResponseBlock && currentResponseBlock.parentNode) {
+      currentResponseBlock.remove();
+      currentResponseBlock = null;
+    }
     runImageFetch();
   } else {
     // Ask mode
@@ -2247,6 +2252,10 @@ async function runImageFetch(userQuestion) {
     const controller = new AbortController();
     currentAbortController = controller;
 
+    // Read responseLang for image analysis
+    const { responseLang: imgLang = 'auto' } = await chrome.storage.sync.get('responseLang').catch(() => ({}));
+    const langInstruction = imgLang === 'auto' ? '' : ` Respond in ${imgLang}.`;
+
     const endpoint = (_visionCfg.visionApiEndpoint || '').replace(/\/$/, '') + '/chat/completions';
     const resp = await fetch(endpoint, {
       method: 'POST',
@@ -2257,7 +2266,7 @@ async function runImageFetch(userQuestion) {
       body: JSON.stringify({
         model: _visionCfg.visionApiModel,
         messages: [
-          { role: 'system', content: 'You are a helpful image analysis assistant. Be clear and informative.' },
+          { role: 'system', content: `You are a helpful image analysis assistant. Be clear and informative.${langInstruction}` },
           ...conversationMessages
         ],
         stream: true
