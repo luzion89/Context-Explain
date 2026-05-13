@@ -2017,3 +2017,367 @@ try {
     }
   });
 } catch (e) { /* extension context invalidated */ }
+
+// ─── Image module-level state ─────────────────────────────────────────────────
+let _imageUrl = null;
+let _imageSrcUrl = null;
+let _visionCfg = null;
+
+// ─── Image Context Menu Handler ───────────────────────────────────────────────
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type !== 'IMAGE_CONTEXT_MENU') return;
+
+    const action = msg.action; // 'explain-image' | 'ask-image'
+    const mode = action === 'explain-image' ? 'image-explain' : 'image-ask';
+
+    if (msg.error || !msg.srcUrl) {
+      showImageError(msg.error || 'Could not determine image URL.');
+      return;
+    }
+
+    handleImageContextMenu(msg.srcUrl, mode);
+  });
+}
+
+function validateVisionConfig(cfg) {
+  if (!cfg.visionEnabled) return 'Image analysis is disabled. Please enable it in the extension Settings.';
+  if (!cfg.visionApiEndpoint) return 'Vision API endpoint is not configured. Please check Settings.';
+  if (!cfg.visionApiKey) return 'Vision API key is not configured. Please check Settings.';
+  if (!cfg.visionApiModel) return 'Vision model is not configured. Please check Settings.';
+  return null;
+}
+
+async function handleImageContextMenu(srcUrl, mode) {
+  let visionCfg;
+  try {
+    visionCfg = await new Promise((res, rej) => {
+      chrome.storage.sync.get(
+        ['visionEnabled','visionApiEndpoint','visionApiKey','visionApiModel'],
+        (data) => {
+          if (chrome.runtime.lastError) rej(chrome.runtime.lastError);
+          else res(data);
+        }
+      );
+    });
+  } catch (e) {
+    showImageError('Could not load settings.');
+    return;
+  }
+
+  const cfgError = validateVisionConfig(visionCfg);
+  if (cfgError) {
+    showImageError(cfgError);
+    return;
+  }
+
+  showImagePanel(srcUrl, mode, visionCfg);
+}
+
+function showImageError(message) {
+  forceClosePanel();
+  if (!panelRoot) {
+    panelRoot = document.createElement('div');
+    Object.assign(panelRoot.style, {
+      position: 'fixed', zIndex: '2147483647',
+      top: '80px', right: '20px',
+    });
+    document.body.appendChild(panelRoot);
+  }
+  shadowRoot = panelRoot.attachShadow({ mode: 'open' });
+  setupKeyboardIsolation(shadowRoot);
+
+  const style = document.createElement('style');
+  style.textContent = getThemeVarsCSS() + `
+    .err-panel {
+      font-family: -apple-system, sans-serif;
+      background: var(--bg-panel); border: 1px solid var(--accent-border);
+      border-radius: 10px; padding: 14px 16px;
+      color: var(--error); font-size: 13px; line-height: 1.5;
+      max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .err-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; padding: 0; flex-shrink: 0; }
+    .err-close:hover { color: var(--text-primary); }
+  `;
+  const div = document.createElement('div');
+  div.className = 'err-panel';
+  div.innerHTML = `<span>⚠ ${message}</span><button class="err-close" title="Close">×</button>`;
+  shadowRoot.appendChild(style);
+  shadowRoot.appendChild(div);
+  applyThemeToPanel(panelRoot, 'system');
+
+  div.querySelector('.err-close').addEventListener('click', removePanel);
+  panelEl = div;
+}
+
+async function showImagePanel(srcUrl, mode, visionCfg) {
+  forceClosePanel();
+
+  currentTerm = 'Image';
+  currentContextBefore = '';
+  currentContextAfter = '';
+  conversationMessages = [];
+  accumulatedText = '';
+  isStreaming = false;
+  _currentMode = mode; // 'image-explain' | 'image-ask'
+  _imageUrl = srcUrl;
+  _imageSrcUrl = srcUrl;
+  _visionCfg = visionCfg;
+
+  const x = window.innerWidth - 420;
+  const y = 80;
+
+  buildPanel(x, y);
+
+  // Replace term-block with image thumbnail
+  const termBlock = panelEl.querySelector('.term-block');
+  if (termBlock) {
+    termBlock.innerHTML = '';
+    termBlock.style.padding = '8px 14px';
+    const thumb = document.createElement('img');
+    thumb.src = srcUrl;
+    thumb.alt = 'Referenced image';
+    Object.assign(thumb.style, {
+      maxWidth: '100%', maxHeight: '140px', objectFit: 'contain',
+      borderRadius: '6px', cursor: 'zoom-in', display: 'block',
+      margin: '0 auto', border: '1px solid var(--border)'
+    });
+    thumb.addEventListener('click', () => showLightbox(srcUrl));
+    thumb.addEventListener('error', () => {
+      termBlock.textContent = '⚠ Image preview unavailable';
+      termBlock.style.color = 'var(--text-hint)';
+      termBlock.style.fontSize = '12px';
+    });
+    termBlock.appendChild(thumb);
+  }
+
+  const footerStatus = panelEl.querySelector('.footer-status');
+
+  if (mode === 'image-explain') {
+    if (footerStatus) { footerStatus.textContent = 'Analyzing image…'; footerStatus.className = 'footer-status streaming'; }
+    runImageFetch();
+  } else {
+    // Ask mode
+    if (footerStatus) { footerStatus.textContent = ''; footerStatus.className = 'footer-status'; }
+    const convBody = panelEl.querySelector('.conversation-body');
+    if (convBody) convBody.innerHTML = '';
+    const sendBtn = panelEl.querySelector('.followup-send');
+    const textarea = panelEl.querySelector('.followup-input');
+    if (textarea) textarea.placeholder = 'Ask something about this image…';
+    if (followupArea) followupArea.classList.add('visible');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.onclick = () => sendImageFollowup();
+    }
+    if (textarea) {
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendImageFollowup(); }
+      });
+      setTimeout(() => textarea.focus(), 100);
+    }
+  }
+}
+
+async function getImageData(srcUrl) {
+  try {
+    const resp = await fetch(srcUrl, { mode: 'cors', cache: 'force-cache' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    return await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res({ type: 'base64', url: reader.result });
+      reader.onerror = rej;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return { type: 'url', url: srcUrl };
+  }
+}
+
+async function runImageFetch(userQuestion) {
+  if (isStreaming) return;
+  isStreaming = true;
+  accumulatedText = '';
+
+  const convBody = panelEl?.querySelector('.conversation-body');
+  const footerStatus = panelEl?.querySelector('.footer-status');
+  const sendBtn = panelEl?.querySelector('.followup-send');
+  const copyBtnEl = panelEl?.querySelector('.copy-btn');
+
+  const msgBlock = document.createElement('div');
+  msgBlock.className = 'response-block';
+  const streamEl = document.createElement('div');
+  streamEl.className = 'streaming-text';
+  streamEl.style.cssText = 'white-space:pre-wrap;word-break:break-word;';
+  msgBlock.appendChild(streamEl);
+  if (convBody) convBody.appendChild(msgBlock);
+
+  if (footerStatus) { footerStatus.textContent = 'Analyzing…'; footerStatus.className = 'footer-status streaming'; }
+  if (sendBtn) sendBtn.disabled = true;
+  if (copyBtnEl) copyBtnEl.disabled = true;
+
+  try {
+    const imgData = await getImageData(_imageSrcUrl);
+
+    const prompt = userQuestion
+      ? userQuestion
+      : 'Please explain what is shown in this image. Be clear and informative.';
+
+    const imageContent = { type: 'image_url', image_url: { url: imgData.url } };
+
+    const userMessage = {
+      role: 'user',
+      content: [imageContent, { type: 'text', text: prompt }]
+    };
+
+    if (!userQuestion) {
+      conversationMessages = [userMessage];
+    } else {
+      conversationMessages.push({ role: 'assistant', content: accumulatedText });
+      conversationMessages.push(userMessage);
+    }
+
+    const controller = new AbortController();
+    currentAbortController = controller;
+
+    const endpoint = (_visionCfg.visionApiEndpoint || '').replace(/\/$/, '') + '/chat/completions';
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + _visionCfg.visionApiKey
+      },
+      body: JSON.stringify({
+        model: _visionCfg.visionApiModel,
+        messages: [
+          { role: 'system', content: 'You are a helpful image analysis assistant. Be clear and informative.' },
+          ...conversationMessages
+        ],
+        stream: true
+      }),
+      signal: controller.signal
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      let errMsg;
+      try { errMsg = JSON.parse(errText)?.error?.message; } catch {}
+      throw new Error(errMsg || `API error ${resp.status}`);
+    }
+
+    // Stream response manually (image fetch manages its own accumulated text)
+    const imgAccumBefore = accumulatedText;
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data:')) continue;
+        const data = t.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const chunk = JSON.parse(data)?.choices?.[0]?.delta?.content;
+          if (chunk && isStreaming) {
+            accumulatedText += chunk;
+            streamEl.textContent = accumulatedText;
+            if (convBody) convBody.scrollTop = convBody.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+
+    isStreaming = false;
+    if (streamEl && msgBlock.contains(streamEl)) {
+      streamEl.remove();
+      msgBlock.innerHTML = renderMarkdown(accumulatedText);
+      renderMermaidBlocks(msgBlock);
+    }
+    if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
+    if (copyBtnEl) copyBtnEl.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (followupArea) followupArea.classList.add('visible');
+    if (followupInput) setTimeout(() => followupInput.focus(), 50);
+
+    // Save to history
+    const histEntry = {
+      id: Date.now() + '_' + Math.random().toString(36).slice(2,8),
+      ts: Date.now(),
+      url: window.location.href,
+      pageTitle: document.title,
+      term: 'Image',
+      contextBefore: '',
+      contextAfter: '',
+      explanation: accumulatedText,
+      followUps: [],
+      mode: 'image',
+      imageUrl: _imageSrcUrl
+    };
+    try {
+      const { ctxHistory = [] } = await chrome.storage.local.get('ctxHistory');
+      ctxHistory.unshift(histEntry);
+      if (ctxHistory.length > 2000) ctxHistory.length = 2000;
+      await chrome.storage.local.set({ ctxHistory });
+    } catch {}
+
+    currentHistoryId = histEntry.id;
+
+  } catch (err) {
+    isStreaming = false;
+    if (err.name === 'AbortError') return;
+    if (streamEl && msgBlock.contains(streamEl)) streamEl.remove();
+    const errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = '⚠ ' + (err.message || 'Request failed');
+    msgBlock.appendChild(errDiv);
+    if (footerStatus) { footerStatus.textContent = 'Failed'; footerStatus.className = 'footer-status error-st'; }
+    if (sendBtn) sendBtn.disabled = false;
+  }
+}
+
+function sendImageFollowup() {
+  const textarea = panelEl?.querySelector('.followup-input');
+  if (!textarea) return;
+  const question = textarea.value.trim();
+  if (!question || isStreaming) return;
+  textarea.value = '';
+
+  const convBody = panelEl?.querySelector('.conversation-body');
+  if (convBody) {
+    const qBlock = document.createElement('div');
+    qBlock.className = 'question-bubble';
+    qBlock.textContent = question;
+    convBody.appendChild(qBlock);
+    convBody.scrollTop = convBody.scrollHeight;
+  }
+
+  runImageFetch(question);
+}
+
+function showLightbox(imgUrl) {
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, {
+    position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+    background: 'rgba(0,0,0,0.85)', zIndex: '2147483647',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'zoom-out'
+  });
+  const img = document.createElement('img');
+  img.src = imgUrl;
+  Object.assign(img.style, {
+    maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain',
+    borderRadius: '4px', boxShadow: '0 4px 32px rgba(0,0,0,0.8)'
+  });
+  overlay.appendChild(img);
+  overlay.addEventListener('click', () => overlay.remove());
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+  });
+  document.body.appendChild(overlay);
+}
