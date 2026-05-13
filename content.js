@@ -122,7 +122,7 @@ function getThemeVarsCSS() {
     --bg-panel: rgba(10,10,20,0.97);
     --text-primary: #d4d0c8;
     --text-secondary: #8a8680;
-    --text-hint: #5a5650;
+    --text-hint: #7e7b76;
     --accent: #e8a030;
     --accent-dim: rgba(232,160,48,0.18);
     --accent-border: rgba(232,160,48,0.22);
@@ -207,21 +207,19 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .ctx-resize-handle:hover { opacity: 0.9; }
   .ctx-resize-sw { left: 0; cursor: nesw-resize; }
   .ctx-resize-se { right: 0; }
-  .ctx-resize-sw::after {
-    content: ''; position: absolute; bottom: 3px; left: 3px;
-    width: 0; height: 0;
-    border-style: solid;
-    border-width: 0 0 7px 7px;
-    border-color: transparent transparent var(--text-hint) transparent;
-  }
+  .ctx-resize-sw::after,
   .ctx-resize-se::after {
-    content: ''; position: absolute; bottom: 3px; right: 3px;
-    width: 0; height: 0;
-    border-style: solid;
-    border-width: 0 0 7px 7px;
-    border-color: transparent transparent var(--text-hint) transparent;
-    transform: scaleX(-1);
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    width: 10px; height: 10px;
+    border: 1.5px solid var(--accent-border);
+    border-radius: 0 0 0 6px;
+    border-top: none;
+    border-right: none;
   }
+  .ctx-resize-sw::after { left: 4px; }
+  .ctx-resize-se::after { right: 4px; transform: scaleX(-1); }
 
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -379,7 +377,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .followup-input::placeholder { color: var(--text-hint); }
   .followup-input:focus { border-color: var(--input-border-focus); box-shadow: 0 0 0 3px var(--focus-ring); }
   .followup-send {
-    width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px;
+    width: 32px; height: 34px; flex-shrink: 0; border-radius: 8px;
     background: var(--accent); border: none; color: #0a0a0c; font-size: 15px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, opacity 0.15s; font-weight: 700;
