@@ -675,9 +675,15 @@ function openFromHistory(entry, btnX, btnY) {
   }];
 
   // Show cached explanation immediately (no streaming)
-  if (currentResponseBlock && entry.explanation) {
-    currentResponseBlock.innerHTML = renderMarkdown(entry.explanation);
-    renderMermaidBlocks(currentResponseBlock);
+  if (currentResponseBlock) {
+    if (entry.explanation) {
+      currentResponseBlock.innerHTML = renderMarkdown(entry.explanation);
+      renderMermaidBlocks(currentResponseBlock);
+    } else {
+      // Ask mode: no initial explanation — remove the default "Thinking…" block entirely
+      currentResponseBlock.remove();
+      currentResponseBlock = null;
+    }
   }
 
   // Show follow-ups
