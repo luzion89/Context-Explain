@@ -233,7 +233,9 @@ function renderHistList(items) {
       ? `<span class="hist-followup-badge" title="Translation">⇌</span>`
       : entry.mode === 'ask'
         ? `<span class="hist-followup-badge" title="Ask">?</span>`
-        : '';
+        : entry.mode === 'image'
+          ? `<span class="hist-followup-badge" title="Image">🖼</span>`
+          : '';
     return `<div class="hist-item" data-id="${entry.id}">
       <div class="hist-item-main">
         <div class="hist-term">${escHtml(entry.term)}</div>
@@ -282,7 +284,19 @@ function showDetail(entry) {
 
   const body = $('detailBody');
   // explanation is empty for ask-mode entries; followUps holds the Q&A
-  let html = entry.explanation
+  let html = '';
+
+  // Show image thumbnail for image-mode entries
+  if (entry.mode === 'image' && entry.imageUrl) {
+    html += `<div style="margin-bottom:12px;text-align:center">
+      <a href="${escHtml(entry.imageUrl)}" target="_blank" rel="noopener" title="Click to view full image">
+        <img src="${escHtml(entry.imageUrl)}" style="max-width:100%;max-height:140px;object-fit:contain;border-radius:6px;border:1px solid var(--border);cursor:zoom-in"
+             onerror="this.style.display='none'">
+      </a>
+    </div>`;
+  }
+
+  html += entry.explanation
     ? `<div class="detail-explanation">${mdToSimpleHtml(entry.explanation)}</div>`
     : '';
 
