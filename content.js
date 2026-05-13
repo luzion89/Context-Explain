@@ -200,13 +200,14 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
 
   .ctx-resize-handle {
-    position: absolute; bottom: 0; width: 14px; height: 14px;
-    cursor: nwse-resize; opacity: 0.4; transition: opacity 0.15s;
+    position: absolute; opacity: 0; transition: opacity 0.15s;
     z-index: 10;
   }
-  .ctx-resize-handle:hover { opacity: 0.9; }
-  .ctx-resize-sw { left: 0; cursor: nesw-resize; }
-  .ctx-resize-se { right: 0; }
+  .ctx-resize-handle:hover { opacity: 1; }
+
+  /* Corner handles */
+  .ctx-resize-sw { bottom: 0; left: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+  .ctx-resize-se { bottom: 0; right: 0; width: 16px; height: 16px; cursor: nwse-resize; }
   .ctx-resize-sw::after,
   .ctx-resize-se::after {
     content: '';
@@ -220,6 +221,11 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
   .ctx-resize-sw::after { left: 4px; }
   .ctx-resize-se::after { right: 4px; transform: scaleX(-1); }
+
+  /* Edge handles */
+  .ctx-resize-e  { top: 16px; right: -3px; width: 6px; bottom: 16px; cursor: ew-resize; }
+  .ctx-resize-w  { top: 16px; left: -3px;  width: 6px; bottom: 16px; cursor: ew-resize; }
+  .ctx-resize-s  { left: 16px; bottom: -3px; height: 6px; right: 16px; cursor: ns-resize; }
 
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -1097,6 +1103,9 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     </div>
     <div class="ctx-resize-sw ctx-resize-handle"></div>
     <div class="ctx-resize-se ctx-resize-handle"></div>
+    <div class="ctx-resize-e ctx-resize-handle"></div>
+    <div class="ctx-resize-w ctx-resize-handle"></div>
+    <div class="ctx-resize-s ctx-resize-handle"></div>
   `;
   shadowRoot.appendChild(panelEl);
 
@@ -1314,7 +1323,18 @@ function setupResize(panelEl) {
       const startX = e.clientX, startY = e.clientY;
       const startW = panelEl.offsetWidth, startH = panelEl.offsetHeight;
       const startLeft = parseFloat(panelEl.style.left) || 0;
+      const startTop  = parseFloat(panelEl.style.top)  || 0;
+
       const isSW = handle.classList.contains('ctx-resize-sw');
+      const isSE = handle.classList.contains('ctx-resize-se');
+      const isE  = handle.classList.contains('ctx-resize-e');
+      const isW  = handle.classList.contains('ctx-resize-w');
+      const isS  = handle.classList.contains('ctx-resize-s');
+
+      const resizeW = isSW || isSE || isE || isW;
+      const resizeH = isSW || isSE || isS;
+      const fromLeft = isSW || isW;
+
       let animFrame = null;
 
       const onMove = (ev) => {
@@ -1323,17 +1343,21 @@ function setupResize(panelEl) {
           const dx = ev.clientX - startX, dy = ev.clientY - startY;
           const maxW = window.innerWidth * 0.9;
           const maxH = window.innerHeight * 0.9;
-          let newW = isSW ? startW - dx : startW + dx;
-          let newH = startH + dy;
-          newW = Math.max(MIN_W, Math.min(newW, maxW));
-          newH = Math.max(MIN_H, Math.min(newH, maxH));
-          panelEl.style.width = newW + 'px';
-          panelEl.style.height = newH + 'px';
-          panelEl.classList.add('has-geometry');
-          if (isSW) {
-            const deltaW = newW - startW;
-            panelEl.style.left = (startLeft - deltaW) + 'px';
+
+          if (resizeW) {
+            let newW = fromLeft ? startW - dx : startW + dx;
+            newW = Math.max(MIN_W, Math.min(newW, maxW));
+            panelEl.style.width = newW + 'px';
+            if (fromLeft) {
+              panelEl.style.left = (startLeft - (newW - startW)) + 'px';
+            }
           }
+          if (resizeH) {
+            let newH = startH + dy;
+            newH = Math.max(MIN_H, Math.min(newH, maxH));
+            panelEl.style.height = newH + 'px';
+          }
+          panelEl.classList.add('has-geometry');
         });
       };
       const onUp = () => {
@@ -2390,9 +2414,23 @@ function showLightbox(imgUrl) {
     borderRadius: '4px', boxShadow: '0 4px 32px rgba(0,0,0,0.8)'
   });
   overlay.appendChild(img);
-  overlay.addEventListener('click', () => overlay.remove());
-  document.addEventListener('keydown', function escHandler(e) {
-    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+
+  const closeLightbox = (e) => {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    overlay.remove();
+    document.removeEventListener('keydown', escHandler);
+  };
+
+  // Intercept mousedown on the overlay so the panel-close listener never fires
+  overlay.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
   });
+  overlay.addEventListener('click', closeLightbox);
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  };
+  document.addEventListener('keydown', escHandler);
   document.body.appendChild(overlay);
 }
