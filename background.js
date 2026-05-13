@@ -12,7 +12,7 @@ function registerContextMenus() {
     });
     chrome.contextMenus.create({
       id: 'ask-image',
-      title: '? Ask about this image',
+      title: '◆ Ask about this image',
       contexts: ['image']
     });
   });

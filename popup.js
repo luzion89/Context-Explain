@@ -93,6 +93,18 @@ $('vision-key-toggle')?.addEventListener('click', () => {
 });
 
 // ─── Vision API: "Use Text API config" checkbox ───────────────────────────────
+function updateVisionFieldsState() {
+  const group = $('vision-fields-group');
+  if (!group) return;
+  if (visionEnabledEl.checked) {
+    group.classList.remove('disabled');
+  } else {
+    group.classList.add('disabled');
+  }
+}
+
+visionEnabledEl.addEventListener('change', updateVisionFieldsState);
+
 visionUseTextEl.addEventListener('change', function() {
   const endpointEl = $('vision-endpoint');
   const keyEl = $('vision-key');
@@ -131,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
       visionKeyEl.value         = data.visionApiKey || '';
       visionModelEl.value       = data.visionApiModel || '';
       visionUseTextEl.checked   = data.visionUseTextConfig || false;
+      updateVisionFieldsState();
       if (data.visionUseTextConfig) {
         visionEndpointEl.disabled = true;
         visionKeyEl.disabled = true;
@@ -474,7 +487,7 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
     const resp = await fetch(url.href, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-      body: JSON.stringify({ model, messages, max_tokens: 10, stream: false }),
+      body: JSON.stringify({ model, messages, max_tokens: 32, stream: false }),
       signal: controller.signal
     });
     clearTimeout(timeoutId);
