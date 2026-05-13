@@ -7,8 +7,8 @@
 
 function setupKeyboardIsolation(shadowRoot) {
   const handler = (e) => {
-    // Allow Escape to propagate so it can close the panel
-    if (e.key === 'Escape') return;
+    if (e.key === 'Escape') return; // allow panel close
+    if (e.key === 'Enter') return;  // allow textarea submit / newline handling
     e.stopPropagation();
     e.stopImmediatePropagation();
     // Do NOT call preventDefault() — preserve typing, copy/paste, IME
@@ -196,7 +196,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .panel.has-geometry { max-height: none; }
 
   .panel-inner {
-    display: flex; flex-direction: column; height: 100%;
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
   }
 
   .ctx-resize-handle {
@@ -1188,7 +1188,8 @@ function buildPanel(btnX, btnY, contextKey) {
   // Follow-up
   followupSend.addEventListener('click', sendFollowup);
   followupInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFollowup(); }
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); sendFollowup(); }
+    // Ctrl+Enter or Shift+Enter = newline (default behavior)
   });
   followupInput.addEventListener('input', () => {
     followupInput.style.height = 'auto';
@@ -2172,7 +2173,8 @@ async function showImagePanel(srcUrl, mode, visionCfg) {
     }
     if (textarea) {
       textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendImageFollowup(); }
+        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); sendImageFollowup(); }
+        // Ctrl+Enter or Shift+Enter = newline (default behavior)
       });
       setTimeout(() => textarea.focus(), 100);
     }
