@@ -21,7 +21,7 @@ const translateLangEl = $('translate-lang');
 const saveBtnEl       = $('saveBtn');
 const statusMsgEl     = $('statusMsg');
 const toggleKeyEl     = $('toggleKey');
-const fieldBaseUrl    = $('fieldBaseUrl');
+const fieldBaseUrl    = $('baseUrlGroup');
 const keyHintEl       = $('keyHint');
 const modelHintEl     = $('modelHint');
 
@@ -29,10 +29,8 @@ const modelHintEl     = $('modelHint');
 const visionEnabledEl      = $('vision-enabled');
 const visionEndpointEl     = $('vision-endpoint');
 const visionKeyEl          = $('vision-key');
-const visionKeyToggleEl    = $('vision-key-toggle');
 const visionModelEl        = $('vision-model');
 const visionUseTextEl      = $('vision-use-text-config');
-const visionConfigFieldsEl = $('vision-config-fields');
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -61,13 +59,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
+// ─── AI Settings sub-tab switching ───────────────────────────────────────────
+document.querySelectorAll('.ai-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ai-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ai-tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('ai-tab-' + btn.dataset.aiTab)?.classList.add('active');
+  });
+});
+
 // ─── Settings: Provider UI ────────────────────────────────────────────────────
 function updateProviderUI(p) {
   const info = PROVIDER_DEFAULTS[p] || PROVIDER_DEFAULTS.custom;
   apiModelEl.placeholder = info.placeholder;
   modelHintEl.textContent = info.hint;
   keyHintEl.textContent = 'Get your key at ' + info.keyHint;
-  fieldBaseUrl.classList.toggle('visible', p === 'custom');
+  fieldBaseUrl.style.display = p === 'custom' ? '' : 'none';
 }
 
 providerEl.addEventListener('change', () => updateProviderUI(providerEl.value));
@@ -79,20 +87,23 @@ toggleKeyEl.addEventListener('click', () => {
 });
 
 // ─── Vision API: key toggle ───────────────────────────────────────────────────
-visionKeyToggleEl.addEventListener('click', () => {
-  visionKeyEl.type = visionKeyEl.type === 'password' ? 'text' : 'password';
+$('vision-key-toggle')?.addEventListener('click', () => {
+  const inp = $('vision-key');
+  if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
 });
 
 // ─── Vision API: "Use Text API config" checkbox ───────────────────────────────
-visionUseTextEl.addEventListener('change', () => {
-  if (visionUseTextEl.checked) {
-    visionEndpointEl.value = apiBaseUrlEl.value || '';
-    visionKeyEl.value = apiKeyEl.value || '';
-    visionEndpointEl.disabled = true;
-    visionKeyEl.disabled = true;
+visionUseTextEl.addEventListener('change', function() {
+  const endpointEl = $('vision-endpoint');
+  const keyEl = $('vision-key');
+  if (this.checked) {
+    endpointEl.value = $('apiBaseUrl')?.value || '';
+    keyEl.value = $('apiKey')?.value || '';
+    endpointEl.disabled = true;
+    keyEl.disabled = true;
   } else {
-    visionEndpointEl.disabled = false;
-    visionKeyEl.disabled = false;
+    endpointEl.disabled = false;
+    keyEl.disabled = false;
   }
 });
 
