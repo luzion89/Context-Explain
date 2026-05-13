@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<script src="lib/mermaid.min.js"></script>
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+
+window.addEventListener('message', async (e) => {
+  const { id, code } = e.data;
+  if (!id || !code) return;
+  try {
+    const { svg } = await mermaid.render('m' + id, code);
+    e.source.postMessage({ id, svg }, e.origin || '*');
+  } catch (err) {
+    e.source.postMessage({ id, error: err.message || String(err) }, e.origin || '*');
+  }
+});
+</script>
+</head>
+<body></body>
+</html>

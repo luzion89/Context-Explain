@@ -10,6 +10,9 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "sandbox": {
+    "pages": ["mermaid-sandbox.html"]
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

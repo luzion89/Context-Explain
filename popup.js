@@ -278,9 +278,8 @@ function mdToSimpleHtml(text) {
   const renderer = new marked.Renderer();
   renderer.code = ({ text: code, lang }) => {
     if (lang === 'mermaid') {
-      // In popup, mermaid is not available (CSP blocks eval); show as code
       const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      return `<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11px;overflow-x:auto;margin:6px 0;color:#a8d0a8"><code>${escaped}</code></pre>`;
+      return `<div class="mermaid-block" data-raw="${escaped}"><div class="mermaid-loading">⟳ Rendering diagram…</div></div>`;
     }
     const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return `<pre style="background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 10px;font-size:11.5px;overflow-x:auto;margin:6px 0;color:#c8f0a8"><code>${escaped}</code></pre>`;
@@ -302,19 +301,58 @@ function mdToSimpleHtml(text) {
   return html;
 }
 
-let _mermaidInit = false;
+// ─── Mermaid via sandboxed iframe (bypasses popup CSP) ───────────────────────
+let _sandboxIframe = null;
+let _sandboxReady = false;
+let _sandboxQueue = []; // [{id, code, resolve}]
+let _pendingRenders = {}; // id → {el, resolve}
+
+function getSandbox() {
+  if (_sandboxIframe) return _sandboxIframe;
+  const iframe = document.createElement('iframe');
+  iframe.src = chrome.runtime.getURL('mermaid-sandbox.html');
+  iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(iframe);
+  _sandboxIframe = iframe;
+
+  window.addEventListener('message', (e) => {
+    const { id, svg, error } = e.data || {};
+    if (!id || !_pendingRenders[id]) return;
+    const { el } = _pendingRenders[id];
+    delete _pendingRenders[id];
+    if (svg) {
+      el.innerHTML = svg;
+      el.removeAttribute('data-raw');
+    } else {
+      el.innerHTML = `<pre style="color:#d06060;font-size:11px">Mermaid: ${error||'render failed'}</pre>`;
+    }
+  });
+
+  iframe.addEventListener('load', () => {
+    _sandboxReady = true;
+    _sandboxQueue.forEach(({ id, code, el }) => {
+      _pendingRenders[id] = { el };
+      iframe.contentWindow.postMessage({ id, code }, '*');
+    });
+    _sandboxQueue = [];
+  });
+
+  return iframe;
+}
+
 function renderMermaidIn(container) {
-  if (typeof mermaid === 'undefined') return;
   const blocks = container.querySelectorAll('.mermaid-block[data-raw]');
   if (!blocks.length) return;
-  if (!_mermaidInit) {
-    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-    _mermaidInit = true;
-  }
+
+  const iframe = getSandbox();
   blocks.forEach((el, i) => {
-    const raw = el.dataset.raw.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
-    mermaid.render(`mermaid-popup-${Date.now()}-${i}`, raw)
-      .then(({ svg }) => { el.innerHTML = svg; el.removeAttribute('data-raw'); })
-      .catch(err => { el.innerHTML = `<pre style="color:#d06060">Mermaid error: ${err.message||err}</pre>`; });
+    const code = el.dataset.raw.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    const id = `mp${Date.now()}${i}`;
+    if (_sandboxReady) {
+      _pendingRenders[id] = { el };
+      iframe.contentWindow.postMessage({ id, code }, '*');
+    } else {
+      _sandboxQueue.push({ id, code, el });
+    }
   });
 }
