@@ -1318,15 +1318,19 @@ Surrounding context:
 
 Target language: ${targetLang}
 
-Instructions:
-1. If the selected text is NOT already in ${targetLang}: provide a natural, context-aware translation. Prioritize communicative equivalence over word-for-word literalism.
-2. If no clean, natural translation exists (idiomatic expressions, cultural references, proper nouns, slang, or context-specific jargon): instead of a forced literal translation, provide 1–2 sentences briefly explaining what the text means in this context. Keep it concise.
-3. If the selected text IS already in ${targetLang}: provide a brief contextual note — what this word/phrase means here, its tone, connotation, or a more natural way to express it.
-4. Single word → most contextually appropriate translation or meaning.
-5. Short phrase → natural equivalent expression.
-6. Sentence(s) → complete natural translation preserving meaning and tone.
-7. Multi-paragraph → translate preserving paragraph structure.
-8. Output the result directly without any preamble like "Here is the translation:" or "Translation:".`;
+Your task: translate and briefly explain the selected text in ${targetLang}. Keep the response short — no lengthy essays.
+
+Format your response as follows:
+1. **Translation** (or **Meaning** if it's already in ${targetLang} or has no clean equivalent): provide the natural translation or meaning in ${targetLang}.
+2. **Context**: 1–2 sentences explaining what this word/phrase means in the specific context above — its role, connotation, tone, or why this translation fits. Do not repeat the translation verbatim; add value.
+
+Rules:
+- If the text is a single common word with an obvious translation, keep the Context note to one short sentence.
+- If the text is idiomatic, cultural, or jargon-heavy, prioritize the explanation over a literal translation.
+- If the text is already in ${targetLang}, skip the Translation line and go straight to explaining its meaning and nuance in context.
+- For multi-sentence passages, translate naturally then briefly note any key nuance.
+- Never output preamble like "Here is the translation:" or "Sure!".
+- Write entirely in ${targetLang}.`;
 }
 
 function buildAskPrompt(ctx, question) {
