@@ -2017,3 +2017,35 @@ try {
     }
   });
 } catch (e) { /* extension context invalidated */ }
+
+// ─── Image Context Menu Handler ───────────────────────────────────────────────
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type !== 'IMAGE_CONTEXT_MENU') return;
+
+    const action = msg.action; // 'explain-image' | 'ask-image'
+    const mode = action === 'explain-image' ? 'image-explain' : 'image-ask';
+
+    if (msg.error || !msg.srcUrl) {
+      // Show a simple error in a panel
+      showImageError(msg.error || 'Could not determine image URL.');
+      return;
+    }
+
+    handleImageContextMenu(msg.srcUrl, mode);
+  });
+}
+
+// Stub — will be replaced by full implementation in v2-09 (feature/v2-image-popup-qa)
+function showImageError(message) {
+  // Show error in a panel using existing panel infrastructure
+  forceClosePanel();
+  // Re-use panel creation to show error message
+  // For now, log to console — full UI in v2-09
+  console.warn('[Context Explain] Image error:', message);
+}
+
+function handleImageContextMenu(srcUrl, mode) {
+  // Stub — full implementation in v2-09
+  console.log('[Context Explain] Image context menu triggered:', mode, srcUrl);
+}

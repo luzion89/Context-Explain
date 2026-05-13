@@ -5,7 +5,8 @@
   "description": "Select any text and get an AI-powered contextual explanation instantly.",
   "permissions": [
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>"
