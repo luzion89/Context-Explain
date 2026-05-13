@@ -97,16 +97,58 @@ function renderMermaidBlocks(container) {
 }
 
 
-const PANEL_STYLES = `
+function getThemeVarsCSS() {
+  return `
+  :host([data-theme="dark"]) {
+    --bg-base: #080810;
+    --bg-surface: #0e0e18;
+    --bg-panel: rgba(10,10,20,0.97);
+    --text-primary: #d4d0c8;
+    --text-secondary: #8a8680;
+    --text-hint: #5a5650;
+    --accent: #e8a030;
+    --accent-dim: rgba(232,160,48,0.18);
+    --accent-border: rgba(232,160,48,0.22);
+    --border: rgba(255,255,255,0.08);
+    --input-bg: #0e0e18;
+    --error: #d06060;
+    --success: #5a9e6f;
+    --code-bg: rgba(232,160,48,0.1);
+    --code-text: #e8d5a8;
+    --scrollbar: rgba(232,160,48,0.18);
+  }
+
+  :host([data-theme="light"]) {
+    --bg-base: #f0ede8;
+    --bg-surface: #faf8f5;
+    --bg-panel: rgba(250,248,245,0.97);
+    --text-primary: #1c1a18;
+    --text-secondary: #5c5852;
+    --text-hint: #9c9890;
+    --accent: #c07818;
+    --accent-dim: rgba(192,120,24,0.12);
+    --accent-border: rgba(192,120,24,0.25);
+    --border: rgba(0,0,0,0.1);
+    --input-bg: #ffffff;
+    --error: #c0392b;
+    --success: #27ae60;
+    --code-bg: rgba(192,120,24,0.08);
+    --code-text: #7a4010;
+    --scrollbar: rgba(192,120,24,0.2);
+  }
+  `;
+}
+
+const PANEL_STYLES = getThemeVarsCSS() + `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :host { all: initial; }
 
   .panel {
     position: fixed;
-    background: rgba(10, 10, 16, 0.97);
+    background: var(--bg-panel);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(232, 160, 48, 0.22);
+    border: 1px solid var(--accent-border);
     border-radius: 13px;
     box-shadow: 0 28px 72px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
     width: 380px;
@@ -126,152 +168,164 @@ const PANEL_STYLES = `
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 11px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     cursor: grab;
     user-select: none;
   }
   .panel-header:active { cursor: grabbing; }
 
-  .logo { color: #e8a030; font-family: 'SF Mono','Fira Code',monospace; font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; }
+  .logo { color: var(--accent); font-family: 'SF Mono','Fira Code',monospace; font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; }
 
   .header-right { display: flex; align-items: center; gap: 6px; }
 
   .retry-btn {
     width: 22px; height: 22px; border-radius: 50%;
-    background: transparent; border: none; color: #555; font-size: 13px;
+    background: transparent; border: none; color: var(--text-hint); font-size: 13px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: color 0.15s, background 0.15s;
     display: none;
   }
   .retry-btn.visible { display: flex; }
-  .retry-btn:hover { color: #e8a030; background: rgba(232,160,48,0.12); }
+  .retry-btn:hover { color: var(--accent); background: var(--accent-dim); }
 
   .close-btn {
     width: 22px; height: 22px; border-radius: 50%;
-    background: transparent; border: none; color: #555; font-size: 17px; line-height: 1;
+    background: transparent; border: none; color: var(--text-hint); font-size: 17px; line-height: 1;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: color 0.15s, background 0.15s; flex-shrink: 0;
   }
-  .close-btn:hover { color: #e8a030; background: rgba(232,160,48,0.12); }
+  .close-btn:hover { color: var(--accent); background: var(--accent-dim); }
 
   .term-block {
     padding: 9px 14px;
-    background: rgba(232,160,48,0.07);
-    border-left: 3px solid #e8a030;
+    background: var(--code-bg);
+    border-left: 3px solid var(--accent);
     font-family: 'SF Mono','Fira Code',monospace;
-    color: #e8d5a8; font-size: 12px; line-height: 1.5;
+    color: var(--code-text); font-size: 12px; line-height: 1.5;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     overflow: hidden; flex-shrink: 0; word-break: break-word;
   }
 
   .conversation-body {
     padding: 0; overflow-y: auto; flex-grow: 1;
-    scrollbar-width: thin; scrollbar-color: rgba(232,160,48,0.18) transparent;
+    scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent;
   }
   .conversation-body::-webkit-scrollbar { width: 4px; }
-  .conversation-body::-webkit-scrollbar-thumb { background: rgba(232,160,48,0.2); border-radius: 2px; }
+  .conversation-body::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
   .response-block {
-    padding: 13px 15px; color: #d0ccc4; line-height: 1.75; font-size: 13.5px;
+    padding: 13px 15px; color: var(--text-primary); line-height: 1.75; font-size: 13.5px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    word-break: break-word; border-bottom: 1px solid rgba(255,255,255,0.04);
+    word-break: break-word; border-bottom: 1px solid var(--border);
   }
   .response-block:last-child { border-bottom: none; }
   .response-block p { margin: 0 0 8px; }
   .response-block p:last-child { margin-bottom: 0; }
   .response-block .para-break { height: 6px; }
-  .response-block h1 { font-size: 15px; font-weight: 700; color: #f0e8d4; margin: 10px 0 6px; }
-  .response-block h2 { font-size: 14px; font-weight: 700; color: #f0e8d4; margin: 10px 0 5px; }
-  .response-block h3 { font-size: 13px; font-weight: 700; color: #e8d5a8; margin: 8px 0 4px; }
-  .response-block strong { color: #f0e8d4; font-weight: 600; }
-  .response-block em { color: #c8c0b0; font-style: italic; }
+  .response-block h1 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 10px 0 6px; }
+  .response-block h2 { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 10px 0 5px; }
+  .response-block h3 { font-size: 13px; font-weight: 700; color: var(--code-text); margin: 8px 0 4px; }
+  .response-block strong { color: var(--text-primary); font-weight: 600; }
+  .response-block em { color: var(--text-secondary); font-style: italic; }
   .response-block del { opacity: 0.5; text-decoration: line-through; }
-  .response-block a { color: #e8a030; text-decoration: none; border-bottom: 1px solid rgba(232,160,48,0.3); }
-  .response-block a:hover { border-bottom-color: #e8a030; }
+  .response-block a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-border); }
+  .response-block a:hover { border-bottom-color: var(--accent); }
   .response-block code {
     font-family: 'SF Mono','Fira Code',monospace; font-size: 11.5px;
-    background: rgba(232,160,48,0.1); color: #e8d5a8;
-    padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(232,160,48,0.15);
+    background: var(--code-bg); color: var(--code-text);
+    padding: 1px 5px; border-radius: 3px; border: 1px solid var(--accent-border);
   }
   .response-block pre.code-block {
-    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+    background: var(--bg-surface); border: 1px solid var(--border);
     border-radius: 6px; padding: 11px 13px; overflow-x: auto; margin: 8px 0; position: relative;
   }
   .response-block pre.code-block code {
-    background: none; border: none; padding: 0; font-size: 11.5px; color: #c8f0a8;
+    background: none; border: none; padding: 0; font-size: 11.5px; color: var(--text-primary);
     display: block; line-height: 1.6; white-space: pre;
   }
-  .response-block .code-lang { position: absolute; top: 6px; right: 10px; font-size: 10px; color: #555; font-family: 'SF Mono',monospace; }
+  .response-block .code-lang { position: absolute; top: 6px; right: 10px; font-size: 10px; color: var(--text-hint); font-family: 'SF Mono',monospace; }
   .response-block ul, .response-block ol { padding-left: 18px; margin: 6px 0; }
   .response-block li { margin: 3px 0; }
-  .response-block blockquote { border-left: 3px solid rgba(232,160,48,0.4); padding-left: 11px; margin: 6px 0; color: #9a9080; font-style: italic; }
+  .response-block blockquote { border-left: 3px solid var(--accent-border); padding-left: 11px; margin: 6px 0; color: var(--text-secondary); font-style: italic; }
   .response-block .katex-display { margin: 10px 0; overflow-x: auto; }
-  .response-block .katex { font-size: 1em; color: #e8d5c0; }
-  .response-block .math-fallback { background: rgba(232,160,48,0.08); color: #c8b890; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+  .response-block .katex { font-size: 1em; color: var(--code-text); }
+  .response-block .math-fallback { background: var(--code-bg); color: var(--code-text); padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
   .response-block .mermaid-block { margin: 10px 0; text-align: center; }
   .response-block .mermaid-block svg { max-width: 100%; height: auto; border-radius: 6px; }
-  .response-block .mermaid-loading { color: #888; font-size: 12px; padding: 12px 0; }
-  .response-block .mermaid-error { color: #d06060; font-size: 11.5px; white-space: pre-wrap; }
-  .response-block hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0; }
+  .response-block .mermaid-loading { color: var(--text-secondary); font-size: 12px; padding: 12px 0; }
+  .response-block .mermaid-error { color: var(--error); font-size: 11.5px; white-space: pre-wrap; }
+  .response-block hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 
-  .status-loading { color: #666; font-style: italic; font-size: 13px; }
+  .status-loading { color: var(--text-hint); font-style: italic; font-size: 13px; }
   .cursor-blink {
-    display: inline-block; width: 2px; height: 1em; background: #e8a030;
+    display: inline-block; width: 2px; height: 1em; background: var(--accent);
     vertical-align: text-bottom; margin-left: 2px;
     animation: blink 0.75s step-end infinite;
   }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-  .error-msg { color: #d06060; font-size: 13px; line-height: 1.5; }
+  .error-msg { color: var(--error); font-size: 13px; line-height: 1.5; }
 
   .question-bubble {
     padding: 9px 15px;
-    background: rgba(232,160,48,0.06);
-    border-left: 2px solid rgba(232,160,48,0.35);
-    font-size: 12.5px; color: #a89870;
+    background: var(--accent-dim);
+    border-left: 2px solid var(--accent-border);
+    font-size: 12.5px; color: var(--text-secondary);
     font-style: italic; word-break: break-word;
   }
 
   /* ── Footer ── */
-  .panel-footer { flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.06); }
-  .footer-actions { display: flex; align-items: center; padding: 8px 14px; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .panel-footer { flex-shrink: 0; border-top: 1px solid var(--border); }
+  .footer-actions { display: flex; align-items: center; padding: 8px 14px; gap: 8px; border-bottom: 1px solid var(--border); }
   .copy-btn {
     padding: 4px 13px; border-radius: 20px;
-    border: 1px solid rgba(232,160,48,0.35); background: transparent;
-    color: #e8a030; font-size: 11.5px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--accent-border); background: transparent;
+    color: var(--accent); font-size: 11.5px; font-weight: 500; cursor: pointer;
     font-family: -apple-system, sans-serif; transition: background 0.15s, color 0.15s;
   }
-  .copy-btn:hover:not(:disabled) { background: #e8a030; color: #0a0a0c; }
+  .copy-btn:hover:not(:disabled) { background: var(--accent); color: #0a0a0c; }
   .copy-btn:disabled { opacity: 0.3; cursor: default; }
 
-  .footer-status { font-size: 11px; color: #444; flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
-  .footer-status.done { color: #5a9e6f; }
-  .footer-status.error-st { color: #d06060; }
-  .footer-status.streaming { color: #888; }
-  .footer-status.stalled { color: #c09040; }
+  .footer-status { font-size: 11px; color: var(--text-hint); flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
+  .footer-status.done { color: var(--success); }
+  .footer-status.error-st { color: var(--error); }
+  .footer-status.streaming { color: var(--text-secondary); }
+  .footer-status.stalled { color: var(--accent); }
 
   /* ── Follow-up ── */
   .followup-area { display: none; padding: 9px 10px 10px; gap: 7px; align-items: flex-end; }
   .followup-area.visible { display: flex; }
   .followup-input {
-    flex: 1; background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
-    color: #d4d0c8; font-size: 12.5px; font-family: -apple-system, sans-serif;
+    flex: 1; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-primary); font-size: 12.5px; font-family: -apple-system, sans-serif;
     padding: 7px 10px; resize: none; outline: none;
     line-height: 1.5; min-height: 34px; max-height: 90px; overflow-y: auto;
     transition: border-color 0.15s;
   }
-  .followup-input::placeholder { color: #3a3a48; }
-  .followup-input:focus { border-color: rgba(232,160,48,0.4); }
+  .followup-input::placeholder { color: var(--text-hint); }
+  .followup-input:focus { border-color: var(--accent-border); }
   .followup-send {
     width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px;
-    background: #e8a030; border: none; color: #0a0a0c; font-size: 15px;
+    background: var(--accent); border: none; color: #0a0a0c; font-size: 15px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, opacity 0.15s; font-weight: 700;
   }
-  .followup-send:hover { background: #f0b040; }
+  .followup-send:hover { filter: brightness(1.1); }
   .followup-send:disabled { opacity: 0.3; cursor: default; }
 `;
+
+// ─── Theme helpers ────────────────────────────────────────────────────────────
+const _panelSysDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+function resolveTheme(theme) {
+  if (theme === 'system') return _panelSysDark.matches ? 'dark' : 'light';
+  return theme;
+}
+
+function applyThemeToPanel(host, theme) {
+  host.dataset.theme = resolveTheme(theme);
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let triggerBtn = null;       // now a wrapper div containing two buttons
@@ -478,6 +532,8 @@ function attachMarkHover(mark, contextKey) {
 
     // ── View History button ──
     const viewBtn = document.createElement('button');
+    // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
+    // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
     viewBtn.textContent = '✦';
     viewBtn.title = 'View explanation';
     Object.assign(viewBtn.style, {
@@ -743,6 +799,8 @@ function showTriggerBtn(x, y) {
     pointerEvents: 'all',
   });
 
+  // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
+  // CSS variables don't propagate here. Theme-aware colors handled in v2-02.
   const btnStyle = {
     height: '26px',
     borderRadius: '13px',
@@ -918,6 +976,16 @@ function buildPanel(btnX, btnY, contextKey) {
     </div>
   `;
   shadowRoot.appendChild(panelEl);
+
+  // ── Apply theme ──
+  // Load saved theme and apply; default to system/dark so panel always has vars.
+  panelRoot.dataset.theme = 'dark'; // safe default until storage resolves
+  try {
+    chrome.storage.sync.get(['theme'], (data) => {
+      if (chrome.runtime.lastError) return;
+      applyThemeToPanel(panelRoot, data.theme || 'system');
+    });
+  } catch (e) { /* extension context invalidated */ }
 
   panelEl.querySelector('.term-block').textContent = currentTerm;
   conversationBody = panelEl.querySelector('.conversation-body');
@@ -1353,7 +1421,7 @@ function handleStreamFailure(message) {
       currentResponseBlock.innerHTML =
         renderMarkdown(partial) +
         `<div style="margin-top:10px;padding:6px 10px;background:rgba(200,80,80,0.07);border-radius:5px;border:1px solid rgba(200,80,80,0.15)">
-           <span style="color:#c06060;font-size:12px">⚠ Stream interrupted — partial response shown.</span>
+           <span style="color:var(--error);font-size:12px">⚠ Stream interrupted — partial response shown.</span>
          </div>`;
     } else {
       currentResponseBlock.innerHTML = `<span class="error-msg">${escHtml(message)}</span>`;
@@ -1673,3 +1741,13 @@ function wordOverlap(a, b) {
 
 // Kick off on script load
 restoreAnnotations();
+
+// ─── Listen for theme changes from popup ─────────────────────────────────────
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync' || !changes.theme) return;
+    if (panelRoot) {
+      applyThemeToPanel(panelRoot, changes.theme.newValue || 'system');
+    }
+  });
+} catch (e) { /* extension context invalidated */ }

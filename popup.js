@@ -16,12 +16,29 @@ const apiKeyEl        = $('apiKey');
 const apiModelEl      = $('apiModel');
 const apiBaseUrlEl    = $('apiBaseUrl');
 const responseLangEl  = $('responseLang');
+const themeSelectEl   = $('theme-select');
 const saveBtnEl       = $('saveBtn');
 const statusMsgEl     = $('statusMsg');
 const toggleKeyEl     = $('toggleKey');
 const fieldBaseUrl    = $('fieldBaseUrl');
 const keyHintEl       = $('keyHint');
 const modelHintEl     = $('modelHint');
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme(theme) {
+  const resolved = (theme === 'system')
+    ? (_sysDark.matches ? 'dark' : 'light')
+    : theme;
+  document.body.dataset.theme = resolved;
+}
+
+_sysDark.addEventListener('change', () => {
+  if (themeSelectEl && themeSelectEl.value === 'system') {
+    applyTheme('system');
+  }
+});
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -54,7 +71,7 @@ toggleKeyEl.addEventListener('click', () => {
 // ─── Settings: Load ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(
-    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang'],
+    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme'],
     (data) => {
       const p = data.apiProvider || 'openai';
       providerEl.value = p;
@@ -62,6 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
       apiModelEl.value = data.apiModel || '';
       apiBaseUrlEl.value = data.apiBaseUrl || '';
       responseLangEl.value = data.responseLang || 'auto';
+      const theme = data.theme || 'system';
+      themeSelectEl.value = theme;
+      applyTheme(theme);
       updateProviderUI(p);
     }
   );
@@ -107,9 +127,13 @@ saveBtnEl.addEventListener('click', () => {
     apiModel: apiModel || PROVIDER_DEFAULTS[provider]?.placeholder || 'gpt-4o-mini',
     apiBaseUrl,
     responseLang: responseLangEl.value,
+    theme: themeSelectEl.value,
   }, () => {
     if (chrome.runtime.lastError) showStatus('Error: ' + chrome.runtime.lastError.message, 'warn');
-    else showStatus('Settings saved!', 'success');
+    else {
+      applyTheme(themeSelectEl.value);
+      showStatus('Settings saved!', 'success');
+    }
   });
 });
 
