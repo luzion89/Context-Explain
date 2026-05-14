@@ -6,12 +6,12 @@
 
 **AI-powered contextual explanations, right where you read.**
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/luzion89/context-explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/context-explain/releases)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
 
-English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/context-explain/releases/latest)
+English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Context-Explain/releases/latest)
 
 ---
 
@@ -37,10 +37,10 @@ No copy-paste. No new tabs. No context lost.
 |---|---|---|
 | 1 | 🖼️ **Vision / Image Analysis** | Right-click any image → explain or ask about it using a separate Vision API |
 | 2 | ⇌ **Translate mode** | Third button on text selection — translates + explains context in 1–2 sentences |
-| 3 | ↔️ **Resizable panel** | Drag any of 5 edges/corners to resize; size remembered across sessions |
+| 3 | ↔️ **Resizable panel** | Drag any of 5 edges/corners to resize; size and position remembered across sessions |
 | 4 | 📌 **Pin panel** | Keep the panel open while clicking elsewhere on the page |
 | 5 | ↻ **Retry button** | Re-run the last query if the stream fails or gives an unsatisfying answer |
-| 6 | 🔍 **History search & images** | Full-text search across all entries; image entries show a thumbnail |
+| 6 | 🔍 **Full-text history search** | Search across term + explanation + all follow-up Q&A; image entries show thumbnail |
 | 7 | ⚙️ **Unified AI Settings** | Text API and Vision API in tabbed sub-panels; inline ✓ test-connection button |
 | 8 | 🌐 **UI localization** | Settings interface language follows your Response Language setting |
 | 9 | 📊 **Markdown table borders** | Properly rendered table borders in panel and history detail view |
@@ -68,23 +68,35 @@ Most lookup tools treat every word in isolation. Context Explain captures the su
 
 **Translate mode** not only translates into your configured target language, but also adds a short note explaining any cultural or contextual nuance the translation alone might miss.
 
+<!-- Screenshot: text selected on page with three buttons (✦ ？ ⇌) appearing -->
+> 📸 *`assets/screenshots/selection-buttons.png` — Text selection with three-button popup*
+
 ### Vision / Image Analysis
 
 Right-click any image on any page. The context menu offers:
 - **◆ Explain this image** — AI describes and explains what the image shows
 - **？ Ask about this image** — type a specific question about the image
 
-Vision uses a **separate API configuration** (endpoint, key, model) — so you can use a vision-capable model (e.g. GPT-4o, Claude 3, OpenRouter) for images while keeping a fast text model for selections.
+Vision uses a **separate API configuration** so you can use a vision-capable model (e.g. GPT-4o, Claude 3, OpenRouter) for images while keeping a fast text model for selections.
+
+<!-- Screenshot: right-click context menu on an image showing Explain/Ask options -->
+> 📸 *`assets/screenshots/image-context-menu.png` — Right-click menu on an image*
+
+<!-- Screenshot: image panel showing thumbnail + AI explanation -->
+> 📸 *`assets/screenshots/image-panel.png` — Image analysis panel with thumbnail*
 
 ### It keeps talking
 
 After every response, a follow-up input appears at the bottom of the panel. Press **Enter** to submit, **Ctrl+Enter** for a newline. The full conversation is maintained — ask for examples, go deeper, request a simpler explanation.
 
+<!-- Screenshot: panel with response and follow-up input area visible -->
+> 📸 *`assets/screenshots/panel-conversation.png` — Conversation panel with follow-up input*
+
 ### Resizable & pinnable panel
 
-Drag any of **5 resize handles** (bottom-left corner, bottom-right corner, left edge, right edge, bottom edge) to resize the panel exactly as needed. Your size **and** position are both saved across sessions.
+Drag any of **5 resize handles** (bottom-left, bottom-right, left edge, right edge, bottom edge) to resize the panel exactly as needed. Size **and** position are both saved across sessions.
 
-**📌 Pin the panel** to keep it open while you scroll, click links, or read other parts of the page. Useful for side-by-side reference.
+**📌 Pin the panel** to keep it open while you scroll, click links, or read other parts of the page.
 
 ### Renders everything the AI returns
 
@@ -95,6 +107,9 @@ Drag any of **5 resize handles** (bottom-left corner, bottom-right corner, left 
 ### Annotations that stick
 
 Every queried passage receives a persistent **amber underline**. Refresh the page — the underlines come back. Context Explain re-locates each passage using context-matching, so the correct occurrence is always highlighted even when the same phrase appears multiple times.
+
+<!-- Screenshot: webpage with amber underlines on several passages -->
+> 📸 *`assets/screenshots/annotations.png` — Amber underlines on annotated passages*
 
 ### Scrollbar minimap
 
@@ -133,7 +148,7 @@ v2 uses a minimal service worker solely for registering the right-click context 
 | 📚 **History** | Full-text search · Export JSON · Delete individual entries · Image thumbnails |
 | ⚡ **Streaming** | RAF-throttled render, Markdown on completion only |
 | 💾 **Storage** | `chrome.storage.local` + `unlimitedStorage`, up to 2000 entries |
-| 🌐 **UI Localization** | Settings UI in EN / 简体中文 / 日本語 / 한국어 |
+| 🌐 **UI localization** | Settings in EN / 简体中文 / 日本語 / 한국어 |
 | 🔒 **Privacy** | All data stays local or goes to your own API — no third-party servers |
 
 ---
@@ -142,17 +157,17 @@ v2 uses a minimal service worker solely for registering the right-click context 
 
 ### Option 1 — Download the latest release (recommended)
 
-1. Go to [**Releases**](https://github.com/luzion89/context-explain/releases/latest)
+1. Go to [**Releases**](https://github.com/luzion89/Context-Explain/releases/latest)
 2. Download `context-explain-v*.zip`
 3. Unzip it
 4. Open Chrome → `chrome://extensions` → enable **Developer mode**
-5. Click **Load unpacked** → select the unzipped `context-explain` folder
-6. Click **✦** in your toolbar → enter your API key → **Save**
+5. Click **Load unpacked** → select the unzipped folder
+6. Click **✦** in your toolbar → enter your API key → **Save Settings**
 
 ### Option 2 — Clone and run
 
 ```bash
-git clone https://github.com/luzion89/context-explain.git
+git clone https://github.com/luzion89/Context-Explain.git
 ```
 
 Then load the folder via **Load unpacked** as above.
@@ -161,26 +176,40 @@ Then load the folder via **Load unpacked** as above.
 
 ## ⚙️ Setup
 
-Click the **✦** toolbar icon to open settings. Settings are organized into tabs:
+Click the **✦** toolbar icon to open settings. Settings are split into two tabs:
 
-### Text API
+### Text API tab
 
 | Field | Notes |
 |---|---|
 | **Provider** | OpenAI / Anthropic / DeepSeek / Custom |
 | **API Key** | Your key from the provider's dashboard |
-| **Model** | Leave blank for default, or type any model name — use **✓** to test the connection inline |
+| **Model** | Leave blank to use the default, or specify any model — click **✓** to test |
 | **Base URL** | Only for custom OpenAI-compatible endpoints |
-| **Response Language** | Auto (matches selected text) or force a language |
-| **Translation Target Language** | Language used in Translate ⇌ mode |
 
-### Vision API
+<!-- Screenshot: Settings popup — Text API tab -->
+> 📸 *`assets/screenshots/settings-text-api.png` — Text API settings tab*
+
+### Vision API tab
 
 | Field | Notes |
 |---|---|
-| **Vision Endpoint** | Any OpenAI-compatible vision endpoint (e.g. `https://api.openai.com/v1`) |
-| **Vision API Key** | Key for the vision endpoint |
-| **Vision Model** | e.g. `gpt-4o`, `claude-3-5-sonnet`, or an OpenRouter model — use **✓** to test |
+| **Enable Image Analysis** | Toggle right-click image features on/off |
+| **API Endpoint** | Any OpenAI-compatible vision endpoint (e.g. `https://api.openai.com/v1`) |
+| **API Key** | Key for the vision endpoint |
+| **Model** | e.g. `gpt-4o`, `claude-3-5-sonnet`, or any OpenRouter vision model — click **✓** to test |
+| **Use Text API configuration** | Copy endpoint & key from the Text API tab |
+
+<!-- Screenshot: Settings popup — Vision API tab -->
+> 📸 *`assets/screenshots/settings-vision-api.png` — Vision API settings tab*
+
+### Behavior
+
+| Field | Notes |
+|---|---|
+| **Response Language** | Auto (matches selected text language) or force a specific language |
+| **Theme** | Follow System / Light / Dark |
+| **Translation Target Language** | Language used by the ⇌ Translate button |
 
 ### Recommended models
 
@@ -199,17 +228,17 @@ Click the **✦** toolbar icon to open settings. Settings are organized into tab
 ### Text selection
 
 ```
-1. Select any text on any webpage — a single character, a term, or a full paragraph
+1. Select any text on any webpage
    ↓
 2. Three buttons appear at the end of the selection
    ✦  →  Explain mode: AI explains immediately
    ？  →  Ask mode: type your own question
-   ⇌  →  Translate mode: translation + brief contextual note
+   ⇌  →  Translate mode: translation + brief context note
    ↓
 3. Response streams in the floating panel
    Math, diagrams, and tables render automatically
    ↓
-4. Follow-up input appears when done — press Enter to submit, Ctrl+Enter for newline
+4. Follow-up input appears when done — Enter to submit, Ctrl+Enter for newline
    ↓
 5. Close the panel — amber underline stays on the text
    ↓
@@ -223,27 +252,27 @@ Click the **✦** toolbar icon to open settings. Settings are organized into tab
    ↓
 2. Choose from the context menu:
    ◆ Explain this image  →  AI describes and explains the image
-   ？ Ask about this image  →  type a specific question about the image
+   ？ Ask about this image  →  type a specific question about it
    ↓
-3. Response streams in the floating panel — same panel, same follow-up flow
+3. Response streams in the panel — same follow-up flow as text mode
 ```
 
 ### Panel controls
 
-| Control | Action |
+| Action | Function |
 |---|---|
-| **Drag title bar** | Move the panel |
-| **Drag edge/corner handles** | Resize the panel (5 handles: SW, SE, left, right, bottom) |
-| **📌 Pin button** | Keep panel open when clicking elsewhere |
+| Drag header | Move the panel |
+| Drag edge/corner handles | Resize the panel (5 handles: SW, SE, left, right, bottom) |
+| **📌 Pin button** | Keep panel open while interacting with the page |
 | **↻ Retry button** | Re-run the last query |
-| **✕ Close** | Close the panel (annotation stays) |
+| **✕ Close** | Close the panel (annotations remain) |
 
 ---
 
 ## 🔒 Privacy
 
-- Selected text, surrounding context, and images are sent **only** to the API providers you configure
-- This extension does **not** communicate with any server other than your chosen AI provider(s)
+- Selected text, context, and images are sent **only** to the API provider you configure
+- This extension does **not** communicate with any server other than your chosen AI provider
 - All history is stored **locally** in your browser via `chrome.storage.local`
 - No analytics · No telemetry · No accounts · No data collection
 

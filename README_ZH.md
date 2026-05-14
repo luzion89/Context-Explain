@@ -6,12 +6,12 @@
 
 **在阅读的地方，获得 AI 的语境化解释。**
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/luzion89/context-explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/context-explain/releases)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
 
-[English](README.md) · 中文 · [下载](https://github.com/luzion89/context-explain/releases/latest)
+[English](README.md) · 中文 · [下载](https://github.com/luzion89/Context-Explain/releases/latest)
 
 ---
 
@@ -37,14 +37,14 @@
 |---|---|---|
 | 1 | 🖼️ **视觉 / 图片分析** | 右键任意图片 → 解释图片 / 对图片提问，使用独立的 Vision API |
 | 2 | ⇌ **翻译模式** | 文字选中后的第三个按钮 — 翻译 + 1~2 句语境说明 |
-| 3 | ↔️ **面板可调整大小** | 拖动 5 个边/角句柄调整大小，尺寸跨会话记忆 |
+| 3 | ↔️ **面板可调整大小** | 拖动 5 个边/角句柄调整大小，尺寸和位置跨会话记忆 |
 | 4 | 📌 **固定面板** | 点击页面其他位置时保持面板不关闭 |
 | 5 | ↻ **重试按钮** | 流式失败或对结果不满意时重新运行上一次查询 |
-| 6 | 🔍 **历史全文搜索 & 图片** | 跨所有条目全文搜索；图片条目显示缩略图 |
+| 6 | 🔍 **历史全文搜索** | 跨所有条目全文搜索（标题 + 解释 + 追问 Q&A）；图片条目显示缩略图 |
 | 7 | ⚙️ **统一 AI 设置** | 文字 API 和视觉 API 分标签页；模型字段内联 ✓ 测试连接按钮 |
 | 8 | 🌐 **界面语言本地化** | 设置界面语言跟随「回复语言」设置 |
 | 9 | 📊 **Markdown 表格边框** | 面板和历史详情页均正确渲染表格边框 |
-| 10 | 🎨 **主题与细节优化** | 独立的翻译目标语言设置；深色模式 WCAG 对比度；Enter 提交追问 |
+| 10 | 🎨 **主题与细节优化** | 独立的翻译目标语言；深色模式 WCAG 对比度；Enter 提交追问 |
 
 ---
 
@@ -64,9 +64,12 @@
 
 **解释模式**适合你遇到陌生内容的情况——某个术语、概念、缩写，或者一段读不太懂的文字。
 
-**提问模式**适合你已经理解文字本身，但有具体想法想进一步探讨的情况——比如：*"这个论点逻辑上成立吗？"*、*"能给个现实例子吗？"*、*"这和 X 有什么区别？"*
+**提问模式**适合你有具体想法想进一步探讨的情况——比如：*"这个论点逻辑上成立吗？"*、*"能给个现实例子吗？"*、*"这和 X 有什么区别？"*
 
 **翻译模式**不仅翻译成你设定的目标语言，还会附上一句关于文化或语境差异的简短说明，让你不只是看到译文，还能理解它。
+
+<!-- Screenshot: 在页面上选中文字后出现的三个按钮（✦ ？ ⇌） -->
+> 📸 *`assets/screenshots/selection-buttons.png` — 文字选中后出现的三按钮弹出框*
 
 ### 视觉 / 图片分析
 
@@ -74,15 +77,24 @@
 - **◆ 解释这张图片** — AI 描述并解释图片内容
 - **？ 询问关于这张图片** — 输入你对图片的具体问题
 
-视觉功能使用**独立的 API 配置**（端点、密钥、模型）——你可以为图片使用支持视觉的模型（如 GPT-4o、Claude 3、OpenRouter），同时为文字选中保留速度更快的文本模型。
+视觉功能使用**独立的 API 配置**——你可以为图片使用支持视觉的模型（如 GPT-4o、Claude 3、OpenRouter），同时为文字选中保留速度更快的文本模型。
+
+<!-- Screenshot: 右键图片弹出的上下文菜单，显示解释/提问选项 -->
+> 📸 *`assets/screenshots/image-context-menu.png` — 图片右键菜单*
+
+<!-- Screenshot: 图片分析面板，显示缩略图和 AI 解释 -->
+> 📸 *`assets/screenshots/image-panel.png` — 图片分析面板（含缩略图）*
 
 ### 对话可以持续
 
 每次回答结束后，面板底部出现追问输入框。按 **Enter** 提交，**Ctrl+Enter** 换行。完整对话历史会随每次追问一起发送——要例子、深入展开、换个更简单的说法……AI 不会失去上下文。
 
+<!-- Screenshot: 面板显示回复和追问输入框 -->
+> 📸 *`assets/screenshots/panel-conversation.png` — 带追问输入框的对话面板*
+
 ### 面板可调整大小，可固定
 
-拖动 **5 个调整句柄**（左下角、右下角、左侧边、右侧边、底部边）任意调整面板大小。你的尺寸**和**位置都会跨会话保存。
+拖动 **5 个调整句柄**（左下角、右下角、左侧边、右侧边、底部边）任意调整面板大小。尺寸**和**位置都会跨会话保存。
 
 **📌 固定面板**，在你滚动页面、点击链接或阅读其他部分时保持面板不关闭。适合对照参考时使用。
 
@@ -96,9 +108,12 @@
 
 每个查询过的文字段落，都会获得一条持久的**琥珀色下划线**。刷新页面后，下划线会自动恢复——通过上下文匹配精确定位到正确的那个。
 
+<!-- Screenshot: 网页上多条琥珀色下划线标注 -->
+> 📸 *`assets/screenshots/annotations.png` — 页面上的琥珀色下划线标注*
+
 ### 滚动条小地图
 
-视口右侧出现琥珀色细横条，标记每条注释在整个页面中的位置。
+视口右侧出现琥珀色细横条，标记每条注释在整个页面中的位置——就像 Chrome 的 Ctrl+F 搜索高亮一样。
 
 ### Hover 即可复看，瞬间加载
 
@@ -142,17 +157,17 @@ v2 使用了一个最小化的 Service Worker，仅用于注册右键菜单（Ch
 
 ### 方式一：下载 Release（推荐）
 
-1. 前往 [**Releases 页面**](https://github.com/luzion89/context-explain/releases/latest)
+1. 前往 [**Releases 页面**](https://github.com/luzion89/Context-Explain/releases/latest)
 2. 下载 `context-explain-v*.zip`
 3. 解压
 4. 打开 Chrome → `chrome://extensions` → 开启右上角**开发者模式**
-5. 点击**加载已解压的扩展程序** → 选择解压出来的 `context-explain` 文件夹
+5. 点击**加载已解压的扩展程序** → 选择解压出来的文件夹
 6. 点击工具栏 **✦** 图标 → 填入 API Key → **保存设置**
 
 ### 方式二：克隆源码
 
 ```bash
-git clone https://github.com/luzion89/context-explain.git
+git clone https://github.com/luzion89/Context-Explain.git
 ```
 
 然后按上述步骤加载文件夹。
@@ -169,18 +184,32 @@ git clone https://github.com/luzion89/context-explain.git
 |---|---|
 | **Provider（服务商）** | OpenAI / Anthropic / DeepSeek / 自定义 |
 | **API Key** | 在对应服务商控制台获取 |
-| **Model（模型）** | 留空使用默认值，或填写任意模型名称 — 使用 **✓** 内联测试连接 |
+| **Model（模型）** | 留空使用默认值，或填写任意模型名称 — 点击 **✓** 测试连接 |
 | **Base URL** | 仅自定义 OpenAI 兼容端点需要填写 |
-| **Response Language（回复语言）** | 自动（匹配选中文字语言）或强制指定语言 |
-| **Translation Target Language（翻译目标语言）** | 翻译模式 ⇌ 使用的目标语言 |
+
+<!-- Screenshot: 设置弹出框 — 文字 API 标签页 -->
+> 📸 *`assets/screenshots/settings-text-api.png` — 文字 API 设置标签页*
 
 ### 视觉 API
 
 | 字段 | 说明 |
 |---|---|
-| **Vision Endpoint** | 任意 OpenAI 兼容的视觉端点（如 `https://api.openai.com/v1`） |
-| **Vision API Key** | 视觉端点的密钥 |
-| **Vision Model** | 如 `gpt-4o`、`claude-3-5-sonnet` 或 OpenRouter 模型 — 使用 **✓** 测试 |
+| **启用图片分析** | 开启/关闭右键图片功能 |
+| **API Endpoint** | 任意 OpenAI 兼容的视觉端点（如 `https://api.openai.com/v1`） |
+| **API Key** | 视觉端点的密钥 |
+| **Model** | 如 `gpt-4o`、`claude-3-5-sonnet` 或 OpenRouter 视觉模型 — 点击 **✓** 测试 |
+| **使用文字 API 配置** | 从文字 API 标签页复制端点和密钥 |
+
+<!-- Screenshot: 设置弹出框 — 视觉 API 标签页 -->
+> 📸 *`assets/screenshots/settings-vision-api.png` — 视觉 API 设置标签页*
+
+### 行为设置
+
+| 字段 | 说明 |
+|---|---|
+| **Response Language（回复语言）** | 自动（匹配选中文字语言）或强制指定语言 |
+| **Theme（主题）** | 跟随系统 / 浅色 / 深色 |
+| **Translation Target Language（翻译目标语言）** | ⇌ 翻译按钮使用的目标语言 |
 
 ### 推荐模型
 
