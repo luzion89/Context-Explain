@@ -961,6 +961,7 @@ function showTriggerBtn(x, y) {
   // ── Ask button ──
   const askBtn = document.createElement('button');
   askBtn.innerHTML = '?';
+  askBtn.className = 'ctx-ask-btn';
   Object.assign(askBtn.style, {
     ...btnStyle,
     fontSize: '13px',
@@ -1139,12 +1140,15 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   shadowRoot.appendChild(panelEl);
 
   // ── Apply theme ──
-  // Load saved theme and apply; default to system/dark so panel always has vars.
-  panelRoot.dataset.theme = 'dark'; // safe default until storage resolves
+  // Use _cachedTheme (pre-loaded from storage at init) so the panel renders
+  // with the correct theme immediately, without waiting for an async callback.
+  applyThemeToPanel(panelRoot, _cachedTheme);
   try {
     chrome.storage.sync.get(['theme'], (data) => {
       if (chrome.runtime.lastError) return;
-      applyThemeToPanel(panelRoot, data.theme || 'system');
+      const t = data.theme || 'system';
+      _cachedTheme = t;
+      applyThemeToPanel(panelRoot, t);
     });
   } catch (e) { /* extension context invalidated */ }
 
@@ -2074,10 +2078,20 @@ restoreAnnotations();
 try {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync' || !changes.theme) return;
+    const newTheme = changes.theme.newValue || 'system';
+    _cachedTheme = newTheme;
     if (panelRoot) {
-      applyThemeToPanel(panelRoot, changes.theme.newValue || 'system');
+      applyThemeToPanel(panelRoot, newTheme);
     }
-    _cachedTheme = changes.theme.newValue || 'system';
+    // Re-apply colors to trigger buttons if currently visible
+    if (triggerBtn) {
+      const hbc = getHostButtonColors();
+      triggerBtn.querySelectorAll('button').forEach(btn => {
+        btn.style.background = hbc.bg;
+        btn.style.border = `1.5px solid ${hbc.accentBorder}`;
+        btn.style.color = btn.classList.contains('ctx-ask-btn') ? hbc.askColor : hbc.accentColor;
+      });
+    }
   });
 } catch (e) { /* extension context invalidated */ }
 
