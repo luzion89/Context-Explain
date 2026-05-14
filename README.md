@@ -108,9 +108,9 @@ Hover any annotated passage: **✦** reopens the full conversation from cache (n
 
 Context Explain coexists with [Immersive Translate](https://immersivetranslate.com/) and other page-modifying extensions. Selection detection uses both `mouseup` and `selectionchange` events, with synchronous Range capture before any DOM mutation can invalidate it.
 
-### No service worker — no dropped connections
+### API calls in the content script — no dropped streams
 
-All API calls are made directly from the content script — which lives as long as the tab — so streams never drop mid-response.
+v2 uses a minimal service worker solely for registering the right-click context menu (a Chrome MV3 requirement). All AI API calls are made directly from the content script — which lives as long as the tab — so streams never drop mid-response due to the 30-second service worker idle timeout.
 
 ---
 

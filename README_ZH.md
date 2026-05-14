@@ -108,9 +108,9 @@
 
 Context Explain 专门针对 [Immersive Translate](https://immersivetranslate.com/) 等会修改页面 DOM 的扩展进行了适配，选区检测同时监听 `mouseup` 和 `selectionchange` 事件，并在任何 DOM 变动使 Range 失效之前同步捕获选区。
 
-### 不用 Service Worker，不会断流
+### API 调用在 Content Script，流式输出不会断
 
-所有 API 调用直接从 Content Script 发起——Content Script 和页面标签页共存亡，流式输出不会被 Chrome 提前中断。
+v2 使用了一个最小化的 Service Worker，仅用于注册右键菜单（Chrome MV3 的必要要求）。所有 AI API 调用依然直接从 Content Script 发起——Content Script 和页面标签页共存亡，不受 Service Worker 30 秒空闲超时的影响，流式输出不会中途断掉。
 
 ---
 
