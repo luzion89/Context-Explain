@@ -2244,6 +2244,34 @@ async function getImageData(srcUrl) {
     const resp = await fetch(srcUrl, { mode: 'cors', cache: 'force-cache' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const blob = await resp.blob();
+
+    // SVG is not supported by vision APIs — rasterize to PNG via canvas first
+    if (blob.type === 'image/svg+xml' || srcUrl.split('?')[0].toLowerCase().endsWith('.svg')) {
+      const svgText = await blob.text();
+      const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+      const pngDataUrl = await new Promise((res, rej) => {
+        const img = new Image();
+        img.onload = () => {
+          // Use natural size, capped at 1024px wide to keep payload reasonable
+          const scale = img.naturalWidth > 1024 ? 1024 / img.naturalWidth : 1;
+          const w = Math.round((img.naturalWidth || 400) * scale);
+          const h = Math.round((img.naturalHeight || 200) * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          // White background so math renders on a clean bg
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL('image/png'));
+        };
+        img.onerror = rej;
+        img.src = svgDataUrl;
+      });
+      return { type: 'base64', url: pngDataUrl };
+    }
+
     return await new Promise((res, rej) => {
       const reader = new FileReader();
       reader.onload = () => res({ type: 'base64', url: reader.result });
