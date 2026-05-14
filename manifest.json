@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Context Explain",
   "version": "2.0.0",
-  "description": "Highlight text or right-click images for AI explanations, translations & Q&A. Supports OpenAI, Claude, DeepSeek & compatible APIs.",
+  "description": "AI explains highlighted text using surrounding context — not just the word. Translate, ask follow-ups & analyze images. BYO API key.",
   "permissions": [
     "storage",
     "unlimitedStorage",
