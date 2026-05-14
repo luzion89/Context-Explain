@@ -27,7 +27,10 @@ zip -r "$OUTPUT" . \
   --exclude "node_modules/*" \
   --exclude ".claude/*" \
   --exclude "assets/demo.gif" \
-  --exclude "assets/screenshots/*"
+  --exclude "assets/screenshots/*" \
+  --exclude "assets/icon-new-512.png" \
+  --exclude "docs/*" \
+  --exclude ".openrouter-api-key"
 
 echo "✓ Created: $OUTPUT"
 echo "  Size: $(du -sh "$OUTPUT" | cut -f1)"
