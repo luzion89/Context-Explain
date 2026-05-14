@@ -420,6 +420,13 @@ function resolveTheme(theme) {
   return theme;
 }
 
+// Pre-load theme so trigger buttons use correct colors before panel is built
+try {
+  chrome.storage.sync.get(['theme'], (data) => {
+    if (!chrome.runtime.lastError) _cachedTheme = data.theme || 'system';
+  });
+} catch (e) { /* extension context invalidated */ }
+
 function applyThemeToPanel(host, theme) {
   host.dataset.theme = resolveTheme(theme);
 }
@@ -430,6 +437,7 @@ let panelRoot = null;
 let shadowRoot = null;
 let panelEl = null;
 let conversationBody = null;
+let _cachedTheme = 'system'; // cached resolved theme for trigger button colors
 let currentResponseBlock = null;
 let copyBtn = null;
 let footerStatus = null;
@@ -460,7 +468,7 @@ let scrollbarCanvas = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getHostButtonColors() {
-  const isLight = panelRoot?.dataset.theme === 'light';
+  const isLight = resolveTheme(_cachedTheme) === 'light';
   return {
     bg: isLight ? '#f5f3ef' : '#0f0f11',
     accentColor: isLight ? '#c07818' : '#e8a030',
@@ -2069,6 +2077,7 @@ try {
     if (panelRoot) {
       applyThemeToPanel(panelRoot, changes.theme.newValue || 'system');
     }
+    _cachedTheme = changes.theme.newValue || 'system';
   });
 } catch (e) { /* extension context invalidated */ }
 
