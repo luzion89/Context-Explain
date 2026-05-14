@@ -920,6 +920,7 @@ function showTriggerBtn(x, y) {
   // CSS variables don't propagate here. Colors resolved from current theme.
   const hbc = getHostButtonColors();
   const btnStyle = {
+    width: '30px',
     height: '26px',
     borderRadius: '13px',
     background: hbc.bg,
@@ -929,7 +930,7 @@ function showTriggerBtn(x, y) {
     cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxShadow: '0 3px 12px rgba(0,0,0,0.55)',
-    padding: '0 8px',
+    padding: '0',
     lineHeight: '1',
     fontFamily: '-apple-system,sans-serif',
     whiteSpace: 'nowrap',
