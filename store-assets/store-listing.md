@@ -16,20 +16,22 @@ Characters: 132 ✓
 
 ## Full Description (English)
 
-**Context Explain** brings AI-powered understanding directly to your reading surface — no copy-paste, no new tabs, no lost context.
+**Context Explain** gives you instant AI understanding right where you read — no tab switching, no copy-paste, no lost context.
 
-**Highlight any text** on any webpage and three buttons appear:
-• ✦ **Explain** — AI explains the selected text in context, instantly
-• ？ **Ask** — Type your own question about the selected passage
-• ⇌ **Translate** — Translates to your target language + a brief contextual note
+Most lookup tools treat words in isolation. Context Explain sends the surrounding passage to the AI, so "Transformer" on an ML paper gets an architecture explanation, while the same word on an engineering page gets something entirely different. Accuracy comes from context.
 
-**Right-click any image** to explain what it shows or ask a specific question about it, using a vision-capable model you configure separately.
+And when one answer isn't enough, keep going — ask follow-up questions in a persistent conversation panel without ever leaving the page.
 
 ---
 
-🎯 **WHY IT'S DIFFERENT**
+🎯 **THREE MODES, THREE INTENTS**
 
-Most lookup tools treat words in isolation. Context Explain sends the surrounding passage alongside your selection, so "Transformer" on an ML paper gets an architecture explanation, while the same word on an engineering page gets something entirely different.
+Select any text on any webpage:
+• ✦ **Explain** — AI explains in context, drawing on the surrounding passage
+• ？ **Ask** — Type your own question about the selected text
+• ⇌ **Translate** — Translates to your target language + a brief contextual note
+
+**Right-click any image** to explain what it shows or ask a specific question about it, using a vision-capable model you configure separately.
 
 ---
 

@@ -29,6 +29,8 @@ zip -r "$OUTPUT" . \
   --exclude "assets/demo.gif" \
   --exclude "assets/screenshots/*" \
   --exclude "assets/icon-new-512.png" \
+  --exclude "assets/*.png" \
+  --exclude "assets/*.gif" \
   --exclude "docs/*" \
   --exclude ".openrouter-api-key"
 
