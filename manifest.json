@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Context Explain",
   "version": "2.0.0",
-  "description": "AI explains highlighted text using surrounding context — not just the word. Translate, ask follow-ups & analyze images. BYO API key.",
+  "description": "Understand anything as you read: context-aware AI explanations, translations & follow-up Q&A without leaving the page. BYO API key.",
   "permissions": [
     "storage",
     "unlimitedStorage",
