@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Context Explain</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      line-height: 1.75;
+      color: #1c1a18;
+      background: #faf8f5;
+    }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    h2 { font-size: 18px; margin-top: 36px; }
+    .meta { color: #6c6860; font-size: 13px; margin-bottom: 32px; }
+    a { color: #c07818; }
+    hr { border: none; border-top: 1px solid #e0ddd8; margin: 40px 0; }
+    .zh { margin-top: 60px; }
+  </style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="meta">Context Explain Chrome Extension &mdash; Last updated: May 2026</p>
+
+<h2>Overview</h2>
+<p>
+  Context Explain is a browser extension that provides AI-powered explanations, translations, and
+  image analysis for content you select while browsing. This policy explains what data the extension
+  handles and how.
+</p>
+
+<h2>Data We Do NOT Collect</h2>
+<ul>
+  <li>We do not collect, store, or transmit any data to our own servers.</li>
+  <li>We do not have any servers. The extension has no backend infrastructure.</li>
+  <li>We do not use analytics, tracking pixels, or any telemetry.</li>
+  <li>We do not require an account or any form of registration.</li>
+  <li>We do not sell or share any data with third parties.</li>
+</ul>
+
+<h2>Data You Provide</h2>
+<p>
+  To use the extension you must supply an API key from an AI provider of your choice
+  (e.g. OpenAI, Anthropic, DeepSeek, or a compatible service). This key is stored
+  <strong>locally in your browser</strong> using Chrome's <code>chrome.storage.sync</code> API,
+  which may sync across your Chrome profile's devices via your Google account. The key is never
+  sent anywhere except directly to the API endpoint you configure.
+</p>
+
+<h2>Data Sent to AI Providers</h2>
+<p>
+  When you use the extension, the following data is sent <strong>directly</strong> from your
+  browser to the AI provider you have configured:
+</p>
+<ul>
+  <li>The text you selected on a webpage</li>
+  <li>A short surrounding context snippet (a few sentences before and after the selection)</li>
+  <li>For image analysis: image data from the image you right-clicked</li>
+  <li>Your follow-up questions</li>
+  <li>Your API key (as a Bearer token in the Authorization header)</li>
+</ul>
+<p>
+  This data is sent directly from your browser to the provider's API endpoint. It does not pass
+  through any intermediate server operated by Context Explain.
+  Each provider's own privacy policy governs how they handle the data you send them.
+</p>
+
+<h2>Local Storage</h2>
+<p>
+  Your conversation history is stored locally in your browser via
+  <code>chrome.storage.local</code>. This data never leaves your device unless you explicitly
+  use the "Export JSON" feature to save it yourself. You can delete all history at any time
+  from the History tab in the extension.
+</p>
+
+<h2>Permissions</h2>
+<p>The extension requests the following permissions:</p>
+<ul>
+  <li><strong>storage / unlimitedStorage</strong> — to save your settings and conversation history locally</li>
+  <li><strong>contextMenus</strong> — to add right-click options for image analysis</li>
+  <li><strong>host_permissions (&lt;all_urls&gt;)</strong> — required to inject the explanation panel on any webpage you visit, and to make API requests to the provider endpoint you configure</li>
+</ul>
+
+<h2>Children's Privacy</h2>
+<p>
+  This extension is not directed at children under 13. We do not knowingly collect
+  any information from children.
+</p>
+
+<h2>Changes to This Policy</h2>
+<p>
+  If this policy changes materially, we will update the date above and note the change
+  in the extension's release notes on the
+  <a href="https://github.com/luzion89/Context-Explain/releases" target="_blank">GitHub Releases page</a>.
+</p>
+
+<h2>Contact</h2>
+<p>
+  Questions or concerns? Open an issue on
+  <a href="https://github.com/luzion89/Context-Explain" target="_blank">GitHub</a>.
+</p>
+
+<hr>
+
+<div class="zh">
+  <h1>隐私政策（中文）</h1>
+  <p class="meta">Context Explain Chrome 扩展 &mdash; 最后更新：2026 年 5 月</p>
+
+  <h2>概述</h2>
+  <p>
+    Context Explain 是一款浏览器扩展，用于为你在浏览时选中的内容提供 AI 解释、翻译和图片分析。
+    本政策说明该扩展如何处理数据。
+  </p>
+
+  <h2>我们不收集的数据</h2>
+  <ul>
+    <li>我们不向任何服务器收集、存储或传输任何数据。</li>
+    <li>本扩展没有任何后端基础设施。</li>
+    <li>我们不使用任何分析工具、追踪像素或遥测。</li>
+    <li>不需要账户或任何形式的注册。</li>
+    <li>我们不向任何第三方出售或共享数据。</li>
+  </ul>
+
+  <h2>你提供的数据</h2>
+  <p>
+    使用本扩展需要提供你选择的 AI 服务商的 API Key（如 OpenAI、Anthropic、DeepSeek 或兼容服务）。
+    该密钥通过 Chrome 的 <code>chrome.storage.sync</code> API 存储在<strong>本地浏览器</strong>中，
+    可能通过你的 Google 账户在多设备间同步。该密钥只会发送到你配置的 API 端点，不会发送到其他地方。
+  </p>
+
+  <h2>发送给 AI 服务商的数据</h2>
+  <p>
+    使用扩展时，以下数据会从你的浏览器<strong>直接</strong>发送到你配置的 AI 服务商：
+  </p>
+  <ul>
+    <li>你在网页上选中的文字</li>
+    <li>选中内容前后的简短上下文片段</li>
+    <li>图片分析时：你右键点击的图片数据</li>
+    <li>你的追问问题</li>
+    <li>你的 API Key（作为 Authorization 请求头中的 Bearer token）</li>
+  </ul>
+  <p>
+    这些数据直接从你的浏览器发送到服务商的 API 端点，不经过 Context Explain 的任何中间服务器。
+    各服务商自身的隐私政策管理他们如何处理你发送的数据。
+  </p>
+
+  <h2>本地存储</h2>
+  <p>
+    你的对话历史通过 <code>chrome.storage.local</code> 存储在本地浏览器中，除非你主动使用
+    "导出 JSON" 功能，否则该数据不会离开你的设备。你可以随时在扩展的历史标签页中删除所有记录。
+  </p>
+
+  <h2>权限说明</h2>
+  <ul>
+    <li><strong>storage / unlimitedStorage</strong> — 在本地保存设置和对话历史</li>
+    <li><strong>contextMenus</strong> — 为图片分析添加右键菜单选项</li>
+    <li><strong>host_permissions (&lt;all_urls&gt;)</strong> — 在任意网页注入解释面板，以及向你配置的 API 端点发送请求</li>
+  </ul>
+
+  <h2>联系方式</h2>
+  <p>
+    如有问题，请在
+    <a href="https://github.com/luzion89/Context-Explain" target="_blank">GitHub</a>
+    上提交 Issue。
+  </p>
+</div>
+
+</body>
+</html>

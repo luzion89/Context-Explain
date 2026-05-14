@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Context Explain",
   "version": "2.0.0",
-  "description": "Select any text and get an AI-powered contextual explanation instantly.",
+  "description": "Highlight text or right-click images for instant AI explanations, translations & Q&A. Works with OpenAI, Claude, DeepSeek and any OpenAI-compatible API.",
   "permissions": [
     "storage",
     "unlimitedStorage",
