@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Context Explain",
   "version": "2.0.0",
-  "description": "Highlight text or right-click images for instant AI explanations, translations & Q&A. Works with OpenAI, Claude, DeepSeek and any OpenAI-compatible API.",
+  "description": "Highlight text or right-click images for AI explanations, translations & Q&A. Supports OpenAI, Claude, DeepSeek & compatible APIs.",
   "permissions": [
     "storage",
     "unlimitedStorage",
