@@ -68,8 +68,7 @@
 
 **翻译模式**不仅翻译成你设定的目标语言，还会附上一句关于文化或语境差异的简短说明，让你不只是看到译文，还能理解它。
 
-<!-- Screenshot: 在页面上选中文字后出现的三个按钮（✦ ？ ⇌） -->
-> 📸 *`assets/screenshots/selection-buttons.png` — 文字选中后出现的三按钮弹出框*
+![文字选中后出现的三按钮弹出框](assets/screenshots/selection-buttons.png)
 
 ### 视觉 / 图片分析
 
@@ -79,15 +78,13 @@
 
 视觉功能使用**独立的 API 配置**——你可以为图片使用支持视觉的模型（如 GPT-4o、Claude 3、OpenRouter），同时为文字选中保留速度更快的文本模型。
 
-<!-- Screenshot: 右键图片弹出的上下文菜单，显示解释/提问选项 -->
-> 📸 *`assets/screenshots/image-context-menu.png` — 图片右键菜单*
+![图片右键菜单](assets/screenshots/image-context-menu.png)
 
 ### 对话可以持续
 
 每次回答结束后，面板底部出现追问输入框。按 **Enter** 提交，**Ctrl+Enter** 换行。完整对话历史会随每次追问一起发送——要例子、深入展开、换个更简单的说法……AI 不会失去上下文。
 
-<!-- Screenshot: 面板显示回复和追问输入框 -->
-> 📸 *`assets/screenshots/panel-conversation.png` — 带追问输入框的对话面板*
+![带追问输入框的对话面板](assets/screenshots/panel-conversation.png)
 
 ### 面板可调整大小，可固定
 
@@ -106,7 +103,7 @@
 每个查询过的文字段落，都会获得一条持久的**琥珀色下划线**。刷新页面后，下划线会自动恢复——通过上下文匹配精确定位到正确的那个。
 
 <!-- Screenshot: 网页上多条琥珀色下划线标注 -->
-> 📸 *`assets/screenshots/annotations.png` — 页面上的琥珀色下划线标注*
+![页面上的琥珀色下划线标注](assets/screenshots/annotations.png)
 
 ### 滚动条小地图
 
@@ -185,7 +182,7 @@ git clone https://github.com/luzion89/Context-Explain.git
 | **Base URL** | 仅自定义 OpenAI 兼容端点需要填写 |
 
 <!-- Screenshot: 设置弹出框 — 文字 API 标签页 -->
-> 📸 *`assets/screenshots/settings-text-api.png` — 文字 API 设置标签页*
+![解释面板与上下文感知 AI 回复](assets/screenshots/screenshot-1.png)
 
 ### 视觉 API
 
@@ -197,8 +194,7 @@ git clone https://github.com/luzion89/Context-Explain.git
 | **Model** | 如 `gpt-4o`、`claude-3-5-sonnet` 或 OpenRouter 视觉模型 — 点击 **✓** 测试 |
 | **使用文字 API 配置** | 从文字 API 标签页复制端点和密钥 |
 
-<!-- Screenshot: 设置弹出框 — 视觉 API 标签页 -->
-> 📸 *`assets/screenshots/settings-vision-api.png` — 视觉 API 设置标签页*
+![图片分析面板](assets/screenshots/screenshot-2.png)
 
 ### 行为设置
 

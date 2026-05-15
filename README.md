@@ -68,8 +68,7 @@ Most lookup tools treat every word in isolation. Context Explain captures the su
 
 **Translate mode** not only translates into your configured target language, but also adds a short note explaining any cultural or contextual nuance the translation alone might miss.
 
-<!-- Screenshot: text selected on page with three buttons (✦ ？ ⇌) appearing -->
-> 📸 *`assets/screenshots/selection-buttons.png` — Text selection with three-button popup*
+![Text selection with three-button popup](assets/screenshots/selection-buttons.png)
 
 ### Vision / Image Analysis
 
@@ -79,15 +78,13 @@ Right-click any image on any page. The context menu offers:
 
 Vision uses a **separate API configuration** so you can use a vision-capable model (e.g. GPT-4o, Claude 3, OpenRouter) for images while keeping a fast text model for selections.
 
-<!-- Screenshot: right-click context menu on an image showing Explain/Ask options -->
-> 📸 *`assets/screenshots/image-context-menu.png` — Right-click menu on an image*
+![Right-click menu on an image](assets/screenshots/image-context-menu.png)
 
 ### It keeps talking
 
 After every response, a follow-up input appears at the bottom of the panel. Press **Enter** to submit, **Ctrl+Enter** for a newline. The full conversation is maintained — ask for examples, go deeper, request a simpler explanation.
 
-<!-- Screenshot: panel with response and follow-up input area visible -->
-> 📸 *`assets/screenshots/panel-conversation.png` — Conversation panel with follow-up input*
+![Conversation panel with follow-up input](assets/screenshots/panel-conversation.png)
 
 ### Resizable & pinnable panel
 
@@ -105,8 +102,7 @@ Drag any of **5 resize handles** (bottom-left, bottom-right, left edge, right ed
 
 Every queried passage receives a persistent **amber underline**. Refresh the page — the underlines come back. Context Explain re-locates each passage using context-matching, so the correct occurrence is always highlighted even when the same phrase appears multiple times.
 
-<!-- Screenshot: webpage with amber underlines on several passages -->
-> 📸 *`assets/screenshots/annotations.png` — Amber underlines on annotated passages*
+![Amber underlines on annotated passages](assets/screenshots/annotations.png)
 
 ### Scrollbar minimap
 
@@ -184,8 +180,7 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 | **Model** | Leave blank to use the default, or specify any model — click **✓** to test |
 | **Base URL** | Only for custom OpenAI-compatible endpoints |
 
-<!-- Screenshot: Settings popup — Text API tab -->
-> 📸 *`assets/screenshots/settings-text-api.png` — Text API settings tab*
+![Explanation panel with context-aware AI response](assets/screenshots/screenshot-1.png)
 
 ### Vision API tab
 
@@ -199,6 +194,8 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 
 <!-- Screenshot: Settings popup — Vision API tab -->
 > 📸 *`assets/screenshots/settings-vision-api.png` — Vision API settings tab*
+
+![Image analysis panel](assets/screenshots/screenshot-2.png)
 
 ### Behavior
 
