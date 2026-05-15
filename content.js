@@ -1158,6 +1158,15 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   footerStatus = panelEl.querySelector('.footer-status');
   retryBtn = panelEl.querySelector('.retry-btn');
   followupArea = panelEl.querySelector('.followup-area');
+
+  // Detect manual scroll: if user scrolls up during streaming, stop auto-scroll
+  _userScrolled = false;
+  conversationBody.addEventListener('scroll', () => {
+    if (!isStreaming) return;
+    const distFromBottom = conversationBody.scrollHeight - conversationBody.scrollTop - conversationBody.clientHeight;
+    // If more than 40px from bottom, user scrolled up intentionally
+    _userScrolled = distFromBottom > 40;
+  });
   followupInput = panelEl.querySelector('.followup-input');
   followupSend = panelEl.querySelector('.followup-send');
 
@@ -1208,7 +1217,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     currentResponseBlock.className = 'response-block';
     currentResponseBlock.innerHTML = '<span class="status-loading">Retrying…</span>';
     conversationBody.appendChild(currentResponseBlock);
-    conversationBody.scrollTop = conversationBody.scrollHeight;
+    _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
     if (footerStatus) { footerStatus.textContent = 'Retrying…'; footerStatus.className = 'footer-status streaming'; }
     if (copyBtn) copyBtn.disabled = true;
     followupArea.classList.remove('visible');
@@ -1524,7 +1533,7 @@ function sendFollowup() {
   currentResponseBlock.innerHTML = '<span class="status-loading">Thinking…</span>';
   conversationBody.appendChild(currentResponseBlock);
 
-  conversationBody.scrollTop = conversationBody.scrollHeight;
+  _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
   if (footerStatus) { footerStatus.textContent = 'Explaining…'; footerStatus.className = 'footer-status streaming'; }
   if (copyBtn) copyBtn.disabled = true;
   followupArea.classList.remove('visible');
@@ -1767,6 +1776,7 @@ function handleStreamFailure(message) {
 // ─── Streaming render: RAF-throttled, zero re-render per chunk ────────────────
 let _rafPending = false;
 let _streamingTextEl = null;
+let _userScrolled = false; // true when user has manually scrolled up during streaming
 
 function appendChunk(text) {
   if (!currentResponseBlock) return;
@@ -1789,7 +1799,7 @@ function appendChunk(text) {
     requestAnimationFrame(() => {
       _rafPending = false;
       if (_streamingTextEl) _streamingTextEl.textContent = accumulatedText;
-      if (conversationBody) conversationBody.scrollTop = conversationBody.scrollHeight;
+      if (conversationBody && !_userScrolled) conversationBody.scrollTop = conversationBody.scrollHeight;
     });
   }
 }
