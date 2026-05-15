@@ -15,7 +15,7 @@ English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Cont
 
 ---
 
-![Context Explain Demo](assets/demo.gif)
+![Context Explain Concept](assets/screenshots/concept-interaction.png)
 
 </div>
 
@@ -81,9 +81,6 @@ Vision uses a **separate API configuration** so you can use a vision-capable mod
 
 <!-- Screenshot: right-click context menu on an image showing Explain/Ask options -->
 > 📸 *`assets/screenshots/image-context-menu.png` — Right-click menu on an image*
-
-<!-- Screenshot: image panel showing thumbnail + AI explanation -->
-> 📸 *`assets/screenshots/image-panel.png` — Image analysis panel with thumbnail*
 
 ### It keeps talking
 
@@ -224,6 +221,8 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 ---
 
 ## 📖 How to use
+
+![Context Explain Demo](assets/demo.gif)
 
 ### Text selection
 

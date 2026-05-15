@@ -470,10 +470,24 @@ function renderHistList(items) {
 }
 
 function deleteHistoryEntry(id) {
+  const entry = allHistory.find(e => e.id === id);
   allHistory = allHistory.filter(e => e.id !== id);
   chrome.storage.local.set({ ctxHistory: allHistory }, () => {
     renderHistList(allHistory);
   });
+  // Notify content script on the active tab to remove the amber underline
+  if (entry) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'DELETE_ANNOTATION',
+          term: entry.term,
+          contextBefore: entry.contextBefore || '',
+          contextAfter: entry.contextAfter || '',
+        }).catch(() => {}); // ignore if content script not present
+      }
+    });
+  }
 }
 
 function showDetail(entry) {

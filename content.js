@@ -457,6 +457,7 @@ let conversationMessages = [];
 let currentTerm = '';
 let currentContextBefore = '';
 let currentContextAfter = '';
+let _savedSelectionRange = null; // range saved at trigger-click time for annotation
 
 // Panel position memory: contextKey -> {left, top}
 const panelPositions = new Map();
@@ -1272,6 +1273,10 @@ function showPanel(ctx, btnX, btnY, mode) {
   currentContextAfter = ctx.contextAfter;
   currentHistoryId = null;
 
+  // Save the current selection range now, before it can be modified by panel interactions
+  const _sel = window.getSelection();
+  _savedSelectionRange = (_sel && _sel.rangeCount > 0) ? _sel.getRangeAt(0).cloneRange() : null;
+
   const contextKey = makeContextKey(ctx.selectedText, ctx.contextBefore, ctx.contextAfter);
   buildPanel(btnX, btnY, contextKey, mode);
 
@@ -1824,12 +1829,11 @@ async function onDone() {
     const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, [], _currentMode);
     currentHistoryId = entry.id;
 
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0).cloneRange();
-      const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
-      annotateRange(range, contextKey, entry);
-      sel.removeAllRanges();
+    const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
+    if (_savedSelectionRange) {
+      annotateRange(_savedSelectionRange, contextKey, entry);
+      _savedSelectionRange = null;
+      window.getSelection()?.removeAllRanges();
     }
   } else if (isInitial && _askModeQuestion) {
     // Ask mode: first response — save with empty explanation, then add Q&A as followUp
@@ -1839,12 +1843,11 @@ async function onDone() {
     currentHistoryId = entry.id;
     await updateHistoryFollowup(currentHistoryId, q, accumulatedText);
 
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0).cloneRange();
-      const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
-      annotateRange(range, contextKey, entry);
-      sel.removeAllRanges();
+    const contextKey2 = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
+    if (_savedSelectionRange) {
+      annotateRange(_savedSelectionRange, contextKey2, entry);
+      _savedSelectionRange = null;
+      window.getSelection()?.removeAllRanges();
     }
   } else {
     // Follow-up done (both modes)
@@ -2113,6 +2116,13 @@ let _visionCfg = null;
 // ─── Image Context Menu Handler ───────────────────────────────────────────────
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'DELETE_ANNOTATION') {
+      // Remove amber underline for a deleted history entry
+      const { term, contextBefore, contextAfter } = msg;
+      const contextKey = makeContextKey(term, contextBefore || '', contextAfter || '');
+      removeAnnotation(contextKey);
+      return;
+    }
     if (msg.type !== 'IMAGE_CONTEXT_MENU') return;
 
     const action = msg.action; // 'explain-image' | 'ask-image'

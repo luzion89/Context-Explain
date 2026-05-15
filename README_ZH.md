@@ -15,7 +15,7 @@
 
 ---
 
-![Context Explain Demo](assets/demo.gif)
+![Context Explain Concept](assets/screenshots/concept-interaction.png)
 
 </div>
 
@@ -81,9 +81,6 @@
 
 <!-- Screenshot: 右键图片弹出的上下文菜单，显示解释/提问选项 -->
 > 📸 *`assets/screenshots/image-context-menu.png` — 图片右键菜单*
-
-<!-- Screenshot: 图片分析面板，显示缩略图和 AI 解释 -->
-> 📸 *`assets/screenshots/image-panel.png` — 图片分析面板（含缩略图）*
 
 ### 对话可以持续
 
@@ -224,6 +221,8 @@ git clone https://github.com/luzion89/Context-Explain.git
 ---
 
 ## 📖 使用方法
+
+![Context Explain Demo](assets/demo.gif)
 
 ### 文字选中
 
