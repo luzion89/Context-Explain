@@ -68,7 +68,7 @@ Most lookup tools treat every word in isolation. Context Explain captures the su
 
 **Translate mode** not only translates into your configured target language, but also adds a short note explaining any cultural or contextual nuance the translation alone might miss.
 
-<figure><img src="assets/screenshots/selection-buttons.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Select any text — three buttons appear instantly</em></figcaption></figure>
+<figure><img src="assets/screenshots/selection-buttons.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Select any text — three buttons appear instantly</em></figcaption></figure>
 
 ### Vision / Image Analysis
 
@@ -78,13 +78,13 @@ Right-click any image on any page. The context menu offers:
 
 Vision uses a **separate API configuration** so you can use a vision-capable model (e.g. GPT-4o, Claude 3, OpenRouter) for images while keeping a fast text model for selections.
 
-<figure><img src="assets/screenshots/image-context-menu.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Right-click any image to explain or ask about it</em></figcaption></figure>
+<figure><img src="assets/screenshots/image-context-menu.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Right-click any image to explain or ask about it</em></figcaption></figure>
 
 ### It keeps talking
 
 After every response, a follow-up input appears at the bottom of the panel. Press **Enter** to submit, **Ctrl+Enter** for a newline. The full conversation is maintained — ask for examples, go deeper, request a simpler explanation.
 
-<figure><img src="assets/screenshots/panel-conversation.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Full conversation panel with unlimited follow-up questions</em></figcaption></figure>
+<figure><img src="assets/screenshots/panel-conversation.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Full conversation panel with unlimited follow-up questions</em></figcaption></figure>
 
 ### Resizable & pinnable panel
 
@@ -102,7 +102,7 @@ Drag any of **5 resize handles** (bottom-left, bottom-right, left edge, right ed
 
 Every queried passage receives a persistent **amber underline**. Refresh the page — the underlines come back. Context Explain re-locates each passage using context-matching, so the correct occurrence is always highlighted even when the same phrase appears multiple times.
 
-<figure><img src="assets/screenshots/annotations.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Persistent amber underlines restored after page reload</em></figcaption></figure>
+<figure><img src="assets/screenshots/annotations.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Persistent amber underlines restored after page reload</em></figcaption></figure>
 
 ### Scrollbar minimap
 
@@ -180,7 +180,7 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 | **Model** | Leave blank to use the default, or specify any model — click **✓** to test |
 | **Base URL** | Only for custom OpenAI-compatible endpoints |
 
-<figure><img src="assets/screenshots/text-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Text API settings — configure your AI provider, model, and API key</em></figcaption></figure>
+<figure><img src="assets/screenshots/text-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Text API settings — configure your AI provider, model, and API key</em></figcaption></figure>
 
 ### Vision API tab
 
@@ -195,7 +195,7 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 <!-- Screenshot: Settings popup — Vision API tab -->
 > 📸 *`assets/screenshots/settings-vision-api.png` — Vision API settings tab*
 
-<figure><img src="assets/screenshots/vision-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>Vision API settings — configure a separate vision-capable model for image analysis</em></figcaption></figure>
+<figure><img src="assets/screenshots/vision-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>Vision API settings — configure a separate vision-capable model for image analysis</em></figcaption></figure>
 
 ### Behavior
 
