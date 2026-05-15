@@ -68,7 +68,7 @@
 
 **翻译模式**不仅翻译成你设定的目标语言，还会附上一句关于文化或语境差异的简短说明，让你不只是看到译文，还能理解它。
 
-<figure><img src="assets/screenshots/selection-buttons.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>划选任意文字 — 三个按钮立即出现</em></figcaption></figure>
+<figure><img src="assets/screenshots/selection-buttons.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>划选任意文字 — 三个按钮立即出现</em></figcaption></figure>
 
 ### 视觉 / 图片分析
 
@@ -78,13 +78,13 @@
 
 视觉功能使用**独立的 API 配置**——你可以为图片使用支持视觉的模型（如 GPT-4o、Claude 3、OpenRouter），同时为文字选中保留速度更快的文本模型。
 
-<figure><img src="assets/screenshots/image-context-menu.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>右键任意图片即可解释或提问</em></figcaption></figure>
+<figure><img src="assets/screenshots/image-context-menu.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>右键任意图片即可解释或提问</em></figcaption></figure>
 
 ### 对话可以持续
 
 每次回答结束后，面板底部出现追问输入框。按 **Enter** 提交，**Ctrl+Enter** 换行。完整对话历史会随每次追问一起发送——要例子、深入展开、换个更简单的说法……AI 不会失去上下文。
 
-<figure><img src="assets/screenshots/panel-conversation.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>完整对话面板，支持无限追问</em></figcaption></figure>
+<figure><img src="assets/screenshots/panel-conversation.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>完整对话面板，支持无限追问</em></figcaption></figure>
 
 ### 面板可调整大小，可固定
 
@@ -103,7 +103,7 @@
 每个查询过的文字段落，都会获得一条持久的**琥珀色下划线**。刷新页面后，下划线会自动恢复——通过上下文匹配精确定位到正确的那个。
 
 <!-- Screenshot: 网页上多条琥珀色下划线标注 -->
-<figure><img src="assets/screenshots/annotations.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>刷新页面后自动恢复的琥珀色下划线标注</em></figcaption></figure>
+<figure><img src="assets/screenshots/annotations.png" style="border:1px solid #e0ddd8;border-radius:8px;width:100%"><figcaption><em>刷新页面后自动恢复的琥珀色下划线标注</em></figcaption></figure>
 
 ### 滚动条小地图
 
