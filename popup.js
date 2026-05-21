@@ -567,7 +567,7 @@ $('btnExport').addEventListener('click', async () => {
     let md = `## ${entry.term}\n\n`;
     md += `*${time} · ${modeLabel}${site ? ` · ${site}` : ''}*\n\n`;
     if (entry.mode === 'image' && entry.imageUrl) {
-      md += `> Image: ${entry.imageUrl}\n\n`;
+      md += `![${entry.term}](${entry.imageUrl})\n\n`;
     }
     if (entry.explanation) {
       md += `${entry.explanation}\n\n`;
