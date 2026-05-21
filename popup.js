@@ -17,7 +17,7 @@ const UI_STRINGS = {
     labelTranslateLang: 'Translation Target Language',
     btnSave: 'Save Settings', msgSaved: 'Settings saved!',
     tabHistorySearch: 'Search history…',
-    btnExport: 'Export JSON', btnClear: 'Clear',
+    btnExport: 'Export ZIP', btnClear: 'Clear',
     optLangAuto: 'Auto-detect (match selected text)',
     themeSystem: 'Follow System', themeLight: 'Light', themeDark: 'Dark',
     testConnectionTitle: 'Test connection',
@@ -36,7 +36,7 @@ const UI_STRINGS = {
     labelTranslateLang: '翻译目标语言',
     btnSave: '保存设置', msgSaved: '设置已保存！',
     tabHistorySearch: '搜索历史…',
-    btnExport: '导出 JSON', btnClear: '清除',
+    btnExport: '导出 ZIP', btnClear: '清除',
     optLangAuto: '自动检测（匹配所选文本）',
     themeSystem: '跟随系统', themeLight: '浅色', themeDark: '深色',
     testConnectionTitle: '测试连接',
@@ -55,7 +55,7 @@ const UI_STRINGS = {
     labelTranslateLang: '翻訳先言語',
     btnSave: '設定を保存', msgSaved: '設定が保存されました！',
     tabHistorySearch: '履歴を検索…',
-    btnExport: 'JSON エクスポート', btnClear: 'クリア',
+    btnExport: 'ZIP エクスポート', btnClear: 'クリア',
     optLangAuto: '自動検出（選択テキストに合わせる）',
     themeSystem: 'システムに従う', themeLight: 'ライト', themeDark: 'ダーク',
     testConnectionTitle: '接続テスト',
@@ -74,7 +74,7 @@ const UI_STRINGS = {
     labelTranslateLang: '번역 대상 언어',
     btnSave: '설정 저장', msgSaved: '설정이 저장되었습니다!',
     tabHistorySearch: '기록 검색…',
-    btnExport: 'JSON 내보내기', btnClear: '지우기',
+    btnExport: 'ZIP 내보내기', btnClear: '지우기',
     optLangAuto: '자동 감지 (선택한 텍스트에 맞춤)',
     themeSystem: '시스템 따르기', themeLight: '라이트', themeDark: '다크',
     testConnectionTitle: '연결 테스트',
@@ -545,13 +545,58 @@ $('histSearch').addEventListener('input', (e) => {
 });
 
 // ─── History: export ──────────────────────────────────────────────────────────
-$('btnExport').addEventListener('click', () => {
-  const json = JSON.stringify(allHistory, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+$('btnExport').addEventListener('click', async () => {
+  if (!allHistory.length) return;
+
+  // Group entries by local date (YYYY-MM-DD)
+  const byDate = {};
+  allHistory.forEach(entry => {
+    const date = new Date(entry.ts).toLocaleDateString('sv'); // 'sv' gives YYYY-MM-DD
+    if (!byDate[date]) byDate[date] = [];
+    byDate[date].push(entry);
+  });
+
+  // Build one MD string per date
+  function entryToMd(entry) {
+    const time = new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const modeLabel = entry.mode === 'translate' ? '⇌ Translate'
+      : entry.mode === 'ask' ? '？ Ask'
+      : entry.mode === 'image' ? '🖼️ Image'
+      : '✦ Explain';
+    const site = hostnameOf(entry.url || '');
+    let md = `## ${entry.term}\n\n`;
+    md += `*${time} · ${modeLabel}${site ? ` · ${site}` : ''}*\n\n`;
+    if (entry.mode === 'image' && entry.imageUrl) {
+      md += `> Image: ${entry.imageUrl}\n\n`;
+    }
+    if (entry.explanation) {
+      md += `${entry.explanation}\n\n`;
+    }
+    if (entry.followUps && entry.followUps.length > 0) {
+      entry.followUps.forEach(fu => {
+        md += `**Q: ${fu.q}**\n\n${fu.a}\n\n`;
+      });
+    }
+    if (entry.url) {
+      md += `*Source: [${entry.pageTitle || entry.url}](${entry.url})*\n\n`;
+    }
+    md += `---\n\n`;
+    return md;
+  }
+
+  const zip = new JSZip();
+  Object.keys(byDate).sort().forEach(date => {
+    const entries = byDate[date].slice().sort((a, b) => a.ts - b.ts);
+    let content = `# Context Explain — ${date}\n\n`;
+    entries.forEach(e => { content += entryToMd(e); });
+    zip.file(`${date}.md`, content);
+  });
+
+  const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `context-explain-history-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `context-explain-history-${new Date().toLocaleDateString('sv')}.zip`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 });
