@@ -382,6 +382,14 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
   .copy-btn:hover:not(:disabled) { background: var(--accent); color: #0a0a0c; }
   .copy-btn:disabled { opacity: 0.3; cursor: default; }
+  .recap-btn {
+    padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-secondary); font-size: 11.5px; font-weight: 500; cursor: pointer;
+    font-family: -apple-system, sans-serif; transition: background 0.15s, color 0.15s;
+  }
+  .recap-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+  .recap-btn:disabled { opacity: 0.3; cursor: default; }
 
   .footer-status { font-size: 11px; color: var(--text-secondary); flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
   .footer-status.done { color: var(--success); }
@@ -440,6 +448,7 @@ let conversationBody = null;
 let _cachedTheme = 'system'; // cached resolved theme for trigger button colors
 let currentResponseBlock = null;
 let copyBtn = null;
+let recapBtn = null;
 let footerStatus = null;
 let retryBtn = null;
 let followupArea = null;
@@ -897,6 +906,7 @@ function openFromHistory(entry, btnX, btnY) {
 
   if (footerStatus) { footerStatus.textContent = 'From history'; footerStatus.className = 'footer-status done'; }
   if (copyBtn) copyBtn.disabled = false;
+  if (recapBtn) recapBtn.disabled = false;
   if (followupArea) followupArea.classList.add('visible');
   if (followupInput) followupInput.focus();
 }
@@ -1126,6 +1136,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       <div class="panel-footer">
         <div class="footer-actions">
           <button class="copy-btn" disabled>Copy</button>
+          <button class="recap-btn" disabled title="Summarize key points of this conversation">Recap</button>
           <span class="footer-status streaming">Explaining…</span>
         </div>
         <div class="followup-area">
@@ -1158,6 +1169,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   panelEl.querySelector('.term-block').textContent = currentTerm;
   conversationBody = panelEl.querySelector('.conversation-body');
   copyBtn = panelEl.querySelector('.copy-btn');
+  recapBtn = panelEl.querySelector('.recap-btn');
   footerStatus = panelEl.querySelector('.footer-status');
   retryBtn = panelEl.querySelector('.retry-btn');
   followupArea = panelEl.querySelector('.followup-area');
@@ -1223,6 +1235,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
     if (footerStatus) { footerStatus.textContent = 'Retrying…'; footerStatus.className = 'footer-status streaming'; }
     if (copyBtn) copyBtn.disabled = true;
+  if (recapBtn) recapBtn.disabled = true;
     followupArea.classList.remove('visible');
     accumulatedText = '';
     startStream();
@@ -1248,6 +1261,16 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     });
     copyBtn.textContent = 'Copied!';
     setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy'; }, 1800);
+  });
+
+  // Recap
+  recapBtn.addEventListener('click', () => {
+    if (isStreaming) return;
+    const recapPrompt = 'Please recap the key points of our conversation so far. Summarize: (1) the core concept or question we explored, (2) the most important insights or answers, (3) any follow-up questions I asked and what we clarified. Be concise and use bullet points where helpful.';
+    if (followupInput) {
+      followupInput.value = recapPrompt;
+      sendFollowup();
+    }
   });
 
   // Follow-up
@@ -1551,6 +1574,7 @@ function sendFollowup() {
   _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
   if (footerStatus) { footerStatus.textContent = 'Explaining…'; footerStatus.className = 'footer-status streaming'; }
   if (copyBtn) copyBtn.disabled = true;
+  if (recapBtn) recapBtn.disabled = true;
   followupArea.classList.remove('visible');
   if (retryBtn) retryBtn.classList.remove('visible');
   accumulatedText = '';
@@ -1867,6 +1891,7 @@ async function onDone() {
   }
 
   if (copyBtn) copyBtn.disabled = false;
+  if (recapBtn) recapBtn.disabled = false;
   if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
   if (followupArea) followupArea.classList.add('visible');
   if (followupInput) setTimeout(() => followupInput.focus(), 50);
@@ -2346,6 +2371,7 @@ async function runImageFetch(userQuestion) {
   const footerStatus = panelEl?.querySelector('.footer-status');
   const sendBtn = panelEl?.querySelector('.followup-send');
   const copyBtnEl = panelEl?.querySelector('.copy-btn');
+  const recapBtnEl = panelEl?.querySelector('.recap-btn');
 
   const msgBlock = document.createElement('div');
   msgBlock.className = 'response-block';
@@ -2358,6 +2384,7 @@ async function runImageFetch(userQuestion) {
   if (footerStatus) { footerStatus.textContent = 'Analyzing…'; footerStatus.className = 'footer-status streaming'; }
   if (sendBtn) sendBtn.disabled = true;
   if (copyBtnEl) copyBtnEl.disabled = true;
+    if (recapBtnEl) recapBtnEl.disabled = true;
 
   try {
     const imgData = await getImageData(_imageSrcUrl);
@@ -2448,6 +2475,7 @@ async function runImageFetch(userQuestion) {
     }
     if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
     if (copyBtnEl) copyBtnEl.disabled = false;
+    if (recapBtnEl) recapBtnEl.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     if (followupArea) followupArea.classList.add('visible');
     if (followupInput) setTimeout(() => followupInput.focus(), 50);
