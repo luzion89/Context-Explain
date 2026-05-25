@@ -1230,8 +1230,16 @@ function buildPanel(btnX, btnY, contextKey, mode) {
 
   // Copy
   copyBtn.addEventListener('click', () => {
-    const blocks = conversationBody.querySelectorAll('.response-block');
-    const texts = Array.from(blocks).map(b => b.dataset.md || b.innerText).join('\n\n---\n\n');
+    // Walk all children in order, picking up question-bubbles and response-blocks
+    const parts = [];
+    conversationBody.querySelectorAll('.question-bubble, .response-block').forEach(el => {
+      if (el.classList.contains('question-bubble')) {
+        parts.push(`**Q: ${el.textContent.trim()}**`);
+      } else {
+        parts.push(el.dataset.md || el.innerText);
+      }
+    });
+    const texts = parts.join('\n\n');
     navigator.clipboard.writeText(texts).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = texts;
