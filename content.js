@@ -860,6 +860,7 @@ function openFromHistory(entry, btnX, btnY) {
   if (currentResponseBlock) {
     if (entry.explanation) {
       currentResponseBlock.innerHTML = renderMarkdown(entry.explanation);
+      currentResponseBlock.dataset.md = entry.explanation;
       renderMermaidBlocks(currentResponseBlock);
     } else {
       // Ask mode: no initial explanation — remove the default "Thinking…" block entirely
@@ -882,6 +883,7 @@ function openFromHistory(entry, btnX, btnY) {
       const block = document.createElement('div');
       block.className = 'response-block';
       block.innerHTML = renderMarkdown(fu.a);
+      block.dataset.md = fu.a;
       renderMermaidBlocks(block);
       conversationBody.appendChild(block);
     }
@@ -1229,7 +1231,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   // Copy
   copyBtn.addEventListener('click', () => {
     const blocks = conversationBody.querySelectorAll('.response-block');
-    const texts = Array.from(blocks).map(b => b.innerText).join('\n\n---\n\n');
+    const texts = Array.from(blocks).map(b => b.dataset.md || b.innerText).join('\n\n---\n\n');
     navigator.clipboard.writeText(texts).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = texts;
@@ -1819,6 +1821,7 @@ async function onDone() {
   // Full markdown render exactly once, after stream completes
   if (currentResponseBlock) {
     currentResponseBlock.innerHTML = renderMarkdown(accumulatedText);
+    currentResponseBlock.dataset.md = accumulatedText;
     renderMermaidBlocks(currentResponseBlock);
   }
 
@@ -2432,6 +2435,7 @@ async function runImageFetch(userQuestion) {
     if (streamEl && msgBlock.contains(streamEl)) {
       streamEl.remove();
       msgBlock.innerHTML = renderMarkdown(accumulatedText);
+      msgBlock.dataset.md = accumulatedText;
       renderMermaidBlocks(msgBlock);
     }
     if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
