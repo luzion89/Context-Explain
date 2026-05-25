@@ -295,9 +295,13 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     border-left: 3px solid var(--accent);
     font-family: 'SF Mono','Fira Code',monospace;
     color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 1.5;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    overflow: hidden; flex-shrink: 0; word-break: break-word;
+    /* max-height = padding-top(9) + 4 lines × 18px + padding-bottom(9) = 90px — no half-lines */
+    max-height: 90px; overflow-y: auto;
+    flex-shrink: 0; word-break: break-word;
+    scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent;
   }
+  .term-block::-webkit-scrollbar { width: 3px; }
+  .term-block::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
   .conversation-body {
     padding: 0; overflow-y: auto; flex: 1; min-height: 0;
@@ -405,7 +409,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     border: 1px solid var(--input-border); border-radius: 8px;
     color: var(--text-primary); font-size: 12.5px; font-family: -apple-system, sans-serif;
     padding: 7px 10px; resize: none; outline: none;
-    line-height: 1.5; min-height: 34px; max-height: 90px; overflow-y: auto;
+    line-height: 1.6; min-height: 36px; max-height: 92px; overflow-y: auto;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .followup-input::placeholder { color: var(--text-hint); }
