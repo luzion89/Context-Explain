@@ -6,7 +6,7 @@
 
 **AI-powered contextual explanations, right where you read.**
 
-[![Version](https://img.shields.io/badge/version-2.0.1-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
