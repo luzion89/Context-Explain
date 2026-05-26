@@ -295,9 +295,10 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     border-left: 3px solid var(--accent);
     font-family: 'SF Mono','Fira Code',monospace;
     color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
     /* max-height = padding-top(9) + 4 lines × 18px + padding-bottom(9) = 90px — no half-lines */
     max-height: 90px; overflow-y: auto;
-    flex-shrink: 0; word-break: break-word;
+    flex-shrink: 0;
     scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent;
   }
   .term-block::-webkit-scrollbar { width: 3px; }
@@ -409,13 +410,14 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     border: 1px solid var(--input-border); border-radius: 8px;
     color: var(--text-primary); font-size: 12.5px; font-family: -apple-system, sans-serif;
     padding: 7px 10px; resize: none; outline: none;
-    line-height: 1.6; min-height: 36px; max-height: 92px; overflow-y: auto;
+    /* line-height: 1.6 → 12.5×1.6=20px/line; 1-line height = 7+20+7+2(border)=36px */
+    line-height: 1.6; min-height: 36px; max-height: 96px; overflow-y: hidden;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .followup-input::placeholder { color: var(--text-hint); }
+  .followup-input::placeholder { color: var(--text-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .followup-input:focus { border-color: var(--input-border-focus); box-shadow: 0 0 0 3px var(--focus-ring); }
   .followup-send {
-    width: 32px; height: 34px; flex-shrink: 0; border-radius: 8px;
+    width: 32px; height: 36px; flex-shrink: 0; border-radius: 8px;
     background: var(--accent); border: none; color: #0a0a0c; font-size: 13px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, opacity 0.15s; font-weight: 400;
@@ -1249,9 +1251,15 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   copyBtn.addEventListener('click', () => {
     // Walk all children in order, picking up question-bubbles and response-blocks
     const parts = [];
+
+    // Add the selected term as a blockquote at the top
+    if (currentTerm && currentTerm !== 'Image') {
+      parts.push(`> ${currentTerm.replace(/\n/g, '\n> ')}`);
+    }
+
     conversationBody.querySelectorAll('.question-bubble, .response-block').forEach(el => {
       if (el.classList.contains('question-bubble')) {
-        parts.push(`**Q: ${el.textContent.trim()}**`);
+        parts.push(`> **${el.textContent.trim()}**`);
       } else {
         parts.push(el.dataset.md || el.innerText);
       }
@@ -1285,7 +1293,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   });
   followupInput.addEventListener('input', () => {
     followupInput.style.height = 'auto';
-    followupInput.style.height = Math.min(followupInput.scrollHeight, 90) + 'px';
+    followupInput.style.height = Math.min(followupInput.scrollHeight, 96) + 'px';
     if (followupSend) followupSend.disabled = !followupInput.value.trim() || isStreaming;
   });
 
@@ -1325,7 +1333,7 @@ function showPanel(ctx, btnX, btnY, mode) {
     if (followupArea) followupArea.classList.add('visible');
     // Pre-fill placeholder to indicate context
     if (followupInput) {
-      followupInput.placeholder = `Ask about "${ctx.selectedText.slice(0, 40)}${ctx.selectedText.length > 40 ? '…' : ''}"`;
+      followupInput.placeholder = `Ask about "${ctx.selectedText.slice(0, 15)}${ctx.selectedText.length > 15 ? '…' : ''}"`;
       followupInput.focus();
     }
     // Prime the conversation with a silent system context message for follow-ups
@@ -2046,73 +2054,127 @@ function tryRestoreEntry(entry) {
   }
 }
 
+// Normalize whitespace for fuzzy text matching (collapse \n and multiple spaces)
+function normalizeWS(s) {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function findTextInDocument(term, ctxBefore, ctxAfter) {
-  // Walk all text nodes, find one whose surrounding text matches our context
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        const p = node.parentElement;
-        if (!p) return NodeFilter.FILTER_REJECT;
-        const tag = p.tagName;
-        // Skip scripts, styles, our own marks
-        if (['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','INPUT'].includes(tag)) return NodeFilter.FILTER_REJECT;
-        if (p.classList && p.classList.contains('ctx-explain-mark')) return NodeFilter.FILTER_REJECT;
-        return NodeFilter.FILTER_ACCEPT;
+  const normTerm = normalizeWS(term);
+  if (!normTerm) return null;
+
+  // ── Helper: collect all visible text nodes ──────────────────────────────────
+  function getTextNodes() {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          const p = node.parentElement;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          const tag = p.tagName;
+          if (['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','INPUT'].includes(tag)) return NodeFilter.FILTER_REJECT;
+          if (p.classList && p.classList.contains('ctx-explain-mark')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    return nodes;
+  }
+
+  // ── Single-node path (no newlines in term) ──────────────────────────────────
+  if (!term.includes('\n')) {
+    const textNodes = getTextNodes();
+    const ctxSnippetBefore = normalizeWS(ctxBefore.slice(-80));
+    const ctxSnippetAfter  = normalizeWS(ctxAfter.slice(0, 80));
+    let best = null, bestScore = -1;
+
+    for (const node of textNodes) {
+      const normNodeText = normalizeWS(node.textContent);
+      if (!normNodeText.includes(normTerm)) continue;
+
+      const parent = node.parentElement || document.body;
+      const fullText = normalizeWS(parent.innerText || parent.textContent || '');
+      const termIdx = fullText.indexOf(normTerm);
+      if (termIdx === -1) continue;
+
+      const beforeSlice = fullText.substring(Math.max(0, termIdx - 100), termIdx);
+      const afterSlice  = fullText.substring(termIdx + normTerm.length, termIdx + normTerm.length + 100);
+      const score = wordOverlap(beforeSlice, ctxSnippetBefore) + wordOverlap(afterSlice, ctxSnippetAfter);
+
+      if (score > bestScore) { bestScore = score; best = node; }
+    }
+
+    if (!best) return null;
+
+    try {
+      const idx = best.textContent.indexOf(term.trim());
+      if (idx === -1) return null;
+      const range = document.createRange();
+      range.setStart(best, idx);
+      range.setEnd(best, idx + term.trim().length);
+      return range;
+    } catch (e) { return null; }
+  }
+
+  // ── Multi-line path: term spans multiple text nodes ─────────────────────────
+  // Split by newlines, take first and last non-empty chunks as anchors
+  const lines = term.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) return null;
+
+  const firstChunk = lines[0];
+  const lastChunk  = lines[lines.length - 1];
+
+  const textNodes = getTextNodes();
+
+  // Find all nodes containing the first chunk
+  const startCandidates = textNodes.filter(n => n.textContent.includes(firstChunk));
+  const endCandidates   = textNodes.filter(n => n.textContent.includes(lastChunk));
+
+  if (startCandidates.length === 0 || endCandidates.length === 0) return null;
+
+  const ctxSnippetBefore = normalizeWS(ctxBefore.slice(-80));
+  const ctxSnippetAfter  = normalizeWS(ctxAfter.slice(0, 80));
+
+  let bestRange = null, bestScore = -1;
+
+  for (const startNode of startCandidates) {
+    const startIdx = startNode.textContent.indexOf(firstChunk);
+    if (startIdx === -1) continue;
+
+    for (const endNode of endCandidates) {
+      // endNode must come after startNode in document order
+      if (startNode === endNode && firstChunk === lastChunk) continue;
+      const pos = startNode.compareDocumentPosition(endNode);
+      if (!(pos & Node.DOCUMENT_POSITION_FOLLOWING) && startNode !== endNode) continue;
+
+      const endIdx = endNode.textContent.indexOf(lastChunk);
+      if (endIdx === -1) continue;
+
+      // Score using context around start node
+      const parent = startNode.parentElement || document.body;
+      const fullText = normalizeWS(parent.innerText || parent.textContent || '');
+      const normFirst = normalizeWS(firstChunk);
+      const fi = fullText.indexOf(normFirst);
+      const beforeSlice = fi >= 0 ? fullText.substring(Math.max(0, fi - 100), fi) : '';
+      const score = wordOverlap(beforeSlice, ctxSnippetBefore);
+
+      if (score > bestScore) {
+        bestScore = score;
+        try {
+          const range = document.createRange();
+          range.setStart(startNode, startIdx);
+          range.setEnd(endNode, endIdx + lastChunk.length);
+          bestRange = range;
+        } catch (e) {}
       }
     }
-  );
-
-  // Collect candidate nodes whose text contains our term
-  const candidates = [];
-  let node;
-  while ((node = walker.nextNode())) {
-    if (node.textContent.includes(term)) {
-      candidates.push(node);
-    }
   }
 
-  if (candidates.length === 0) return null;
-
-  // Score each candidate by how well surrounding text matches ctxBefore+ctxAfter
-  const ctxSnippetBefore = ctxBefore.slice(-80).trim();
-  const ctxSnippetAfter  = ctxAfter.slice(0, 80).trim();
-
-  let best = null, bestScore = -1;
-
-  for (const node of candidates) {
-    // Get surrounding text by walking siblings/parent
-    const parent = node.parentElement || document.body;
-    const fullText = (parent.innerText || parent.textContent || '');
-    const termIdx = fullText.indexOf(term);
-    if (termIdx === -1) continue;
-
-    const beforeSlice = fullText.substring(Math.max(0, termIdx - 100), termIdx).trim();
-    const afterSlice  = fullText.substring(termIdx + term.length, termIdx + term.length + 100).trim();
-
-    // Simple similarity score: count matching words
-    const score = wordOverlap(beforeSlice, ctxSnippetBefore) + wordOverlap(afterSlice, ctxSnippetAfter);
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = node;
-    }
-  }
-
-  if (!best) return null;
-
-  // Build a range around the term within the best text node
-  try {
-    const idx = best.textContent.indexOf(term);
-    if (idx === -1) return null;
-    const range = document.createRange();
-    range.setStart(best, idx);
-    range.setEnd(best, idx + term.length);
-    return range;
-  } catch (e) {
-    return null;
-  }
+  return bestRange;
 }
 
 function wordOverlap(a, b) {
