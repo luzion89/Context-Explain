@@ -1265,9 +1265,11 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       }
     });
     const texts = parts.join('\n\n');
-    navigator.clipboard.writeText(texts).catch(() => {
+    const pageRef = `*Source: [${document.title || location.href}](${location.href})*`;
+    const finalText = texts + '\n\n' + pageRef;
+    navigator.clipboard.writeText(finalText).catch(() => {
       const ta = document.createElement('textarea');
-      ta.value = texts;
+      ta.value = finalText;
       Object.assign(ta.style, { position:'fixed', opacity:'0' });
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     });
