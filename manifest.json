@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Context Explain",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Understand anything as you read: context-aware AI explanations, translations & follow-up Q&A without leaving the page. BYO API key.",
   "permissions": [
     "storage",
