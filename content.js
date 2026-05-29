@@ -511,19 +511,40 @@ function isEditable(node) {
 function extractContext(selection) {
   const selectedText = selection.toString().trim();
   const range = selection.getRangeAt(0);
-  let container = range.commonAncestorContainer;
-  if (container.nodeType === Node.TEXT_NODE) container = container.parentElement;
 
-  const blockTags = ['P','DIV','ARTICLE','SECTION','LI','TD','BLOCKQUOTE','MAIN','FIGURE','HEADER','FOOTER'];
-  while (container && !blockTags.includes(container.tagName) && container !== document.body) {
-    container = container.parentElement;
+  // Use the full document body text to capture cross-paragraph context
+  const fullText = (document.body.innerText || document.body.textContent || '');
+  // Normalize: collapse runs of whitespace to single space for reliable matching
+  const normFull = fullText.replace(/\s+/g, ' ');
+  const normTerm  = selectedText.replace(/\s+/g, ' ');
+
+  let idx = fullText.indexOf(selectedText);
+  if (idx === -1) {
+    // Fall back to normalized match, then map offset back to raw
+    const ni = normFull.indexOf(normTerm);
+    if (ni === -1) {
+      // Last resort: partial match on first 20 chars
+      idx = fullText.indexOf(selectedText.slice(0, 20));
+    } else {
+      // Map normalized index to raw text position
+      let c = 0;
+      for (let i = 0; i < fullText.length; i++) {
+        if (c === ni) { idx = i; break; }
+        // Skip collapsing whitespace in raw
+        if (i > 0 && /\s/.test(fullText[i]) && /\s/.test(fullText[i - 1])) continue;
+        c++;
+      }
+      if (idx === -1 || c < ni) idx = fullText.indexOf(selectedText.slice(0, 20));
+    }
   }
 
-  const fullText = (container || document.body).innerText || '';
-  const idx = fullText.indexOf(selectedText);
-  const contextLen = 400;
-  const before = idx > 0 ? fullText.substring(Math.max(0, idx - contextLen), idx) : '';
-  const after = fullText.substring(idx + selectedText.length, idx + selectedText.length + contextLen);
+  const contextLen = 500;
+  let before = '', after = '';
+  if (idx >= 0) {
+    before = fullText.substring(Math.max(0, idx - contextLen), idx);
+    after  = fullText.substring(idx + selectedText.length, idx + selectedText.length + contextLen);
+  }
+
   return {
     selectedText,
     contextBefore: before.trimStart(),
@@ -1259,7 +1280,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
 
     conversationBody.querySelectorAll('.question-bubble, .response-block').forEach(el => {
       if (el.classList.contains('question-bubble')) {
-        parts.push(`> **${el.textContent.trim()}**`);
+        parts.push(`> ❓ **${el.textContent.trim()}**`);
       } else {
         parts.push(el.dataset.md || el.innerText);
       }
@@ -1369,7 +1390,7 @@ let _askModeQuestion = null; // stores the user's question for ask-mode first tu
 let _currentMode = 'explain'; // 'explain' | 'translate'
 
 function buildInitialPrompt(ctx) {
-  return `Selected text: "${ctx.selectedText}"\n\nSurrounding context:\n…${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}…\n\nPlease explain what "${ctx.selectedText}" means in this context. If it's a technical term, acronym, or concept, explain it clearly. Be focused and practical.`;
+  return `Selected text: "${ctx.selectedText}"\n\nSurrounding context:\n${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}\n\nPlease explain what "${ctx.selectedText}" means in this context. If it's a technical term, acronym, or concept, explain it clearly. Be focused and practical.`;
 }
 
 // Placeholder: the real prompt is built in runFetch after loading translateLang from storage.
@@ -1388,7 +1409,7 @@ function buildTranslatePrompt(ctx, targetLang) {
 "${selectedText}"
 
 Surrounding context:
-…${contextBefore}[${selectedText}]${contextAfter}…
+${contextBefore}[${selectedText}]${contextAfter}
 
 Target language: ${targetLang}
 
@@ -1408,7 +1429,7 @@ Rules:
 }
 
 function buildAskPrompt(ctx, question) {
-  return `I'm reading a page and selected this text: "${ctx.selectedText}"\n\nContext: …${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}…\n\nMy question: ${question}`;
+  return `I'm reading a page and selected this text: "${ctx.selectedText}"\n\nContext:\n${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}\n\nMy question: ${question}`;
 }
 
 // ─── Resize handles ───────────────────────────────────────────────────────────
