@@ -6,7 +6,7 @@
 
 **AI-powered contextual explanations, right where you read.**
 
-[![Version](https://img.shields.io/badge/version-2.1.2-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -20,6 +20,16 @@ English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Cont
 </div>
 
 ---
+
+## Updates in v2.2.0–v2.2.3
+
+- **Model discovery** for text and vision settings: OpenAI, Anthropic (including pagination), DeepSeek, and third-party OpenAI-compatible `/models` endpoints. Search the returned IDs or enter a custom ID; manual entry remains available after failures.
+- **DeepSeek Thinking and Network** switches for the next text request. Network currently requires `deepseek-flash`; the model decides when to search and additional charges may apply. Explain/Translate send their initial request immediately; use switches for follow-ups, or set them before the first request in Ask mode.
+- **Settings and panel improvements**: discovery button beside the model label, examples inside inputs, no divider above Save, and a follow-up composer visible during streaming (send after completion).
+- **Localization** in English, Simplified Chinese, Japanese and Korean for discovery notices, connection feedback, panel buttons and status text. Successful discovery notices update on language changes; Recap uses the interface language.
+- **Prompt management** tab: edit eight templates for explanation, questions, translation, recap, image explanation and system instructions. Overrides are stored locally per language with reset-to-default and template variables. Save before switching languages; changes apply to new requests.
+
+Limitations: discovered IDs are not guaranteed to support the selected chat/vision API. Search metadata is retained in the open conversation, not fully restored from history. Syntax, mocked requests, prompt and history checks pass; real Chrome/API validation is still required.
 
 ## ✦ What is Context Explain?
 
@@ -138,7 +148,7 @@ v2 uses a minimal service worker solely for registering the right-click context 
 | 🪟 **Panel** | Draggable, resizable (5 handles), pinnable — position & size saved |
 | 📌 **Pin** | Keep panel open while interacting with the page |
 | ↻ **Retry** | Re-run last query on failure or dissatisfaction |
-| 📚 **History** | Full-text search · Export JSON · Delete individual entries · Image thumbnails |
+| 📚 **History** | Full-text search · Export Markdown ZIP · Delete individual entries · Image thumbnails |
 | ⚡ **Streaming** | RAF-throttled render, Markdown on completion only |
 | 💾 **Storage** | `chrome.storage.local` + `unlimitedStorage`, up to 2000 entries |
 | 🌐 **UI localization** | Settings in EN / 简体中文 / 日本語 / 한국어 |

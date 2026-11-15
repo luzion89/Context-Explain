@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Context Explain",
-  "version": "2.1.2",
+  "version": "2.2.3",
   "description": "Understand anything as you read: context-aware AI explanations, translations & follow-up Q&A without leaving the page. BYO API key.",
   "permissions": [
     "storage",
@@ -12,15 +12,25 @@
     "<all_urls>"
   ],
   "sandbox": {
-    "pages": ["mermaid-sandbox.html"]
+    "pages": [
+      "mermaid-sandbox.html"
+    ]
   },
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["lib/marked.min.js", "lib/katex.min.js", "lib/mermaid.min.js", "content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/marked.min.js",
+        "lib/katex.min.js",
+        "lib/mermaid.min.js",
+        "lib/prompts.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -35,8 +45,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["lib/katex.min.css", "lib/fonts/*.woff2", "lib/mermaid.min.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "lib/katex.min.css",
+        "lib/fonts/*.woff2",
+        "lib/mermaid.min.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {

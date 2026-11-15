@@ -1,7 +1,31 @@
+const SETTINGS_LOCALE = {
+ 'English': ['Get your key at ', 'Connected', 'Connection failed', 'Check the API endpoint, key, model and network.'],
+ 'Chinese (Simplified)': ['获取密钥：', '连接成功', '连接失败', '请检查 API 地址、密钥、模型和网络。'],
+ 'Japanese': ['API キーを取得：', '接続成功', '接続失敗', 'API アドレス、キー、モデル、ネットワークを確認してください。'],
+ 'Korean': ['API 키 발급: ', '연결 성공', '연결 실패', 'API 주소, 키, 모델 및 네트워크를 확인하세요.']
+};
+function settingsText(index) { return (SETTINGS_LOCALE[currentModelLanguage] || SETTINGS_LOCALE.English)[index]; }
 /* ============================================================
    Context Explain — popup.js
    ============================================================ */
 
+let currentModelLanguage = 'English';
+const MODEL_COPY = {
+ 'English': ['Fetch models','Loading…','Enter API endpoint and key first.','Models loaded. Select or type a model.','Failed to fetch models. You can enter a model manually.','Use custom model: ','e.g. '],
+ 'Chinese (Simplified)': ['获取模型列表','正在获取…','请先填写 API 地址和密钥。','模型已获取，可搜索选择或自行输入。','获取失败，可手动输入模型名称。','使用自定义模型：','例如：'],
+ 'Japanese': ['モデルを取得','取得中…','API エンドポイントとキーを入力してください。','モデルを検索・選択するか、直接入力できます。','取得できません。モデル名を直接入力できます。','カスタムモデルを使用：','例：'],
+ 'Korean': ['모델 목록 가져오기','가져오는 중…','API 주소와 키를 입력하세요.','모델을 검색하거나 직접 입력하세요.','가져오지 못했습니다. 모델 이름을 직접 입력할 수 있습니다.','사용자 지정 모델: ','예: ']
+};
+function modelCopy() { return MODEL_COPY[currentModelLanguage] || MODEL_COPY.English; }
+function refreshModelLanguage() {
+ const t = modelCopy();
+ for(const id of ['text-models-result','vision-models-result']) {const el=document.getElementById(id);if(el?.dataset.state==='success')el.textContent=t[3];}
+ const hint=document.getElementById('keyHint'); const selected=document.getElementById('provider'); if(hint && selected) hint.textContent=settingsText(0)+(PROVIDER_DEFAULTS[selected.value]?.keyHint || '');
+ for (const prefix of ['text','vision']) { const b=document.getElementById('fetch-'+prefix+'-models'); if(b) b.textContent=t[0]; }
+ const input=document.getElementById('apiModel'); const provider=document.getElementById('provider');
+ if(input && provider) input.placeholder=t[6]+(PROVIDER_DEFAULTS[provider.value]?.placeholder || 'model-name');
+ const vision=document.getElementById('vision-model'); if(vision) vision.placeholder=t[6]+'gpt-4o / gemini-pro-vision';
+}
 const UI_STRINGS = {
   'English': {
     tabSettings: 'Settings', tabHistory: 'History',
@@ -82,7 +106,10 @@ const UI_STRINGS = {
 };
 
 function applyUILanguage(lang) {
+  currentModelLanguage = lang;
   const s = UI_STRINGS[lang] || UI_STRINGS['English'];
+  refreshModelLanguage();
+  renderPromptEditors();
 
   // Tab nav
   const tabBtns = document.querySelectorAll('.tab-btn');
@@ -171,7 +198,7 @@ function applyUILanguage(lang) {
 const PROVIDER_DEFAULTS = {
   openai:    { placeholder: 'gpt-4o-mini',                hint: 'e.g. gpt-4o, gpt-4o-mini',             keyHint: 'platform.openai.com' },
   anthropic: { placeholder: 'claude-3-5-haiku-20241022',  hint: 'e.g. claude-opus-4-5, claude-3-5-haiku',keyHint: 'console.anthropic.com' },
-  deepseek:  { placeholder: 'deepseek-chat',              hint: 'e.g. deepseek-chat, deepseek-reasoner', keyHint: 'platform.deepseek.com' },
+  deepseek:  { placeholder: 'deepseek-flash',             hint: 'e.g. deepseek-flash, deepseek-v4-pro', keyHint: 'platform.deepseek.com' },
   custom:    { placeholder: 'model-name',                 hint: 'Model name your API accepts',           keyHint: 'Your custom API key' },
 };
 
@@ -238,9 +265,9 @@ document.querySelectorAll('.ai-tab-btn').forEach(btn => {
 // ─── Settings: Provider UI ────────────────────────────────────────────────────
 function updateProviderUI(p) {
   const info = PROVIDER_DEFAULTS[p] || PROVIDER_DEFAULTS.custom;
-  apiModelEl.placeholder = info.placeholder;
-  modelHintEl.textContent = info.hint;
-  keyHintEl.textContent = 'Get your key at ' + info.keyHint;
+  refreshModelLanguage();
+  modelHintEl.textContent = "";
+  keyHintEl.textContent = settingsText(0) + info.keyHint;
   fieldBaseUrl.style.display = p === 'custom' ? '' : 'none';
 }
 
@@ -690,7 +717,7 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
   const showResult = (success, message) => {
     resultEl.style.display = 'block';
     resultEl.className = 'test-inline-result ' + (success ? 'success' : 'error');
-    resultEl.textContent = (success ? '✓ ' : '✗ ') + message;
+    resultEl.textContent = (success ? '✓ ' : '✗ ') + (success || currentModelLanguage === 'English' ? message : settingsText(2) + '：' + settingsText(3));
     resetBtn(success);
   };
 
@@ -754,7 +781,7 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
     if (!json?.choices?.[0]) throw new Error('Unexpected response structure from API.');
 
     const timestamp = new Date().toLocaleTimeString();
-    showResult(true, `Connected — ${latency}ms (${timestamp})`);
+    showResult(true, `${settingsText(1)} — ${latency} ms (${timestamp})`);
 
   } catch (e) {
     clearTimeout(timeoutId);
@@ -800,6 +827,88 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   });
 });
+
+// Fetch model IDs without replacing the editable model field.
+const MODEL_ENDPOINTS = {openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1'};
+async function fetchModelList(vision) {
+  const btn = $(vision ? 'fetch-vision-models' : 'fetch-text-models');
+  const status = $(vision ? 'vision-models-result' : 'text-models-result');
+  const list = $(vision ? 'vision-model-list' : 'text-model-list');
+  const useText = !vision || visionUseTextEl.checked;
+  const provider = useText ? providerEl.value : 'custom';
+  const endpoint = (useText ? (provider === 'custom' ? apiBaseUrlEl.value : MODEL_ENDPOINTS[provider]) : visionEndpointEl.value).trim().replace(/\/+$/, '');
+  const key = (useText ? apiKeyEl.value : visionKeyEl.value).trim();
+  list.replaceChildren();
+  status.dataset.state = '';
+  if (!endpoint || !key) { status.textContent = modelCopy()[2]; return; }
+  btn.disabled = true;
+  status.textContent = modelCopy()[1];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const headers = provider === 'anthropic'
+      ? {'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'}
+      : {'Authorization': 'Bearer ' + key};
+    const models = [];
+    let next = '';
+    do {
+      const url = new URL(endpoint + '/models');
+      if (next) url.searchParams.set('after_id', next);
+      const response = await fetch(url.href, {headers, signal: controller.signal});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      if (!Array.isArray(data.data)) throw new Error('Invalid model list response');
+      for (const item of data.data) if (typeof item.id === 'string') models.push(item.id);
+      next = provider === 'anthropic' && data.has_more ? data.last_id : '';
+    } while (next && models.length < 5000);
+    [...new Set(models)].sort().forEach(id => { const option = document.createElement('option'); option.value = id; list.appendChild(option); });
+    if (!list.children.length) throw new Error('No models returned');
+    status.dataset.state = 'success';
+    status.textContent = modelCopy()[3];
+  } catch (e) {
+    status.textContent = modelCopy()[4] + ' (' + (e.name === 'AbortError' ? 'timeout' : e.message) + ')';
+  } finally { clearTimeout(timer); btn.disabled = false; }
+}
+function setupModelSearch(prefix, input) {
+ const list = $(prefix+'-model-list'), results = $(prefix+'-model-results');
+ let active = -1;
+ const close = () => { results.hidden=true; input.setAttribute('aria-expanded','false'); input.removeAttribute('aria-activedescendant'); };
+ const render = () => {
+   const models = Array.from(list.children, option=>option.value);
+   if (!models.length) { close(); return; }
+   const query=input.value.trim();
+   const matches=models.filter(id=>id.toLowerCase().includes(query.toLowerCase())).slice(0,100);
+   results.replaceChildren(); active=-1;
+   const values=matches.length ? matches : [query];
+   for (const [i,value] of values.entries()) {
+     const item=document.createElement('button'); item.type='button'; item.id=prefix+'-model-option-'+i; item.setAttribute('role','option');
+     item.textContent=matches.length ? value : modelCopy()[5]+value;
+     item.addEventListener('mousedown',e=>e.preventDefault());
+     item.addEventListener('click',()=>{input.value=value; close(); input.focus();});
+     results.appendChild(item);
+   }
+   results.hidden=false; input.setAttribute('aria-expanded','true');
+ };
+ input.addEventListener('input',render); input.addEventListener('focus',render);
+ input.addEventListener('blur',close);
+ input.addEventListener('keydown',e=>{
+   if(e.key==='Escape') {close();return;}
+   if(e.key==='ArrowDown'||e.key==='ArrowUp') {
+     e.preventDefault(); if(results.hidden) render();
+     const items=Array.from(results.children); if(!items.length)return;
+     active=(active+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;
+     items.forEach((item,i)=>item.setAttribute('aria-selected',String(i===active)));
+     input.setAttribute('aria-activedescendant',items[active].id); items[active].scrollIntoView({block:'nearest'});
+   } else if(e.key==='Enter' && !results.hidden && active>=0) {e.preventDefault();results.children[active].click();}
+ });
+}
+setupModelSearch('text', apiModelEl);
+setupModelSearch('vision', visionModelEl);
+
+$('fetch-text-models').addEventListener('click', () => fetchModelList(false));
+$('fetch-vision-models').addEventListener('click', () => fetchModelList(true));
+[providerEl, apiBaseUrlEl, apiKeyEl].forEach(el => el.addEventListener('change', () => $('text-model-list').replaceChildren()));
+[visionEndpointEl, visionKeyEl, visionUseTextEl].forEach(el => el.addEventListener('change', () => $('vision-model-list').replaceChildren()));
 
 // ─── Mermaid via sandboxed iframe (bypasses popup CSP) ───────────────────────
 let _sandboxIframe = null;
@@ -856,3 +965,27 @@ function renderMermaidIn(container) {
     }
   });
 }
+
+const PROMPT_UI = {"English": ["Prompts", "Save prompts", "Restore defaults", "Saved. Applies to new queries.", "Edit prompts for the current interface language. Variables: {{selectedText}}, {{contextBefore}}, {{contextAfter}}, {{question}}, {{targetLang}}, {{responseLang}}. Save before switching language.", "Explain", "Ask", "Translate", "Recap", "Text system instructions", "Translation system instructions", "Image explanation", "Image system instructions"], "Chinese (Simplified)": ["提示词管理", "保存提示词", "恢复默认", "已保存，新查询将使用这些提示词。", "按当前界面语言编辑提示词。可用变量：{{selectedText}}（所选文本）、{{contextBefore}}（前文）、{{contextAfter}}（后文）、{{question}}（问题）、{{targetLang}}（翻译目标语言）、{{responseLang}}（回复语言）。切换语言前请先保存。", "文本解释", "文本提问", "上下文翻译", "对话总结", "文本系统指令", "翻译系统指令", "图片解释", "图片系统指令"], "Japanese": ["プロンプト", "保存", "既定値に戻す", "保存しました。新しい質問に適用されます。", "現在の表示言語のプロンプトを編集します。変数：{{selectedText}}, {{contextBefore}}, {{contextAfter}}, {{question}}, {{targetLang}}, {{responseLang}}。言語変更前に保存してください。", "説明", "質問", "翻訳", "要約", "テキストのシステム指示", "翻訳のシステム指示", "画像の説明", "画像のシステム指示"], "Korean": ["프롬프트 관리", "저장", "기본값 복원", "저장되었습니다. 새 질문에 적용됩니다.", "현재 표시 언어의 프롬프트를 편집합니다. 변수: {{selectedText}}, {{contextBefore}}, {{contextAfter}}, {{question}}, {{targetLang}}, {{responseLang}}. 언어 변경 전에 저장하세요.", "텍스트 설명", "질문", "번역", "요약", "텍스트 시스템 지침", "번역 시스템 지침", "이미지 설명", "이미지 시스템 지침"]};
+function renderPromptEditors() {
+ const lang=ctxPromptLanguage(currentModelLanguage), t=PROMPT_UI[lang];
+ $('prompts-tab').textContent=t[0];$('save-prompts').textContent=t[1];$('reset-prompts').textContent=t[2];$('prompt-help').textContent=t[4];$('prompt-status').textContent='';
+ const container=$('prompt-editors');container.replaceChildren();
+ Object.keys(CTX_PROMPT_DEFAULTS.English).forEach((key,index)=>{
+   const label=document.createElement('label');label.textContent=t[index+5];label.htmlFor='prompt-'+key;
+   const input=document.createElement('textarea');input.id='prompt-'+key;input.className='prompt-editor';input.dataset.promptKey=key;input.value=ctxPromptTemplate(key,lang);
+   container.append(label,input);
+ });
+}
+$('save-prompts').addEventListener('click',async()=>{
+ const lang=ctxPromptLanguage(currentModelLanguage);
+ const stored=await chrome.storage.local.get('ctxPromptOverrides');const overrides=stored.ctxPromptOverrides || {};
+ overrides[lang]={};document.querySelectorAll('[data-prompt-key]').forEach(el=>{if(el.value.trim())overrides[lang][el.dataset.promptKey]=el.value;});
+ await chrome.storage.local.set({ctxPromptOverrides:overrides});ctxPromptOverrides=overrides;
+ $('prompt-status').textContent=PROMPT_UI[lang][3];
+});
+$('reset-prompts').addEventListener('click',async()=>{
+ const stored=await chrome.storage.local.get('ctxPromptOverrides');const overrides=stored.ctxPromptOverrides || {};delete overrides[ctxPromptLanguage(currentModelLanguage)];
+ await chrome.storage.local.set({ctxPromptOverrides:overrides});ctxPromptOverrides=overrides;renderPromptEditors();
+});
+ctxPromptsReady.then(renderPromptEditors);

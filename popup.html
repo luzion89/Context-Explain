@@ -633,7 +633,18 @@
     ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
     /* Model wrapper with inline check button */
+    .prompt-editor { width:100%; min-height:100px; resize:vertical; box-sizing:border-box; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:8px; margin:5px 0 12px; }
+    .model-label-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .model-label-row label { margin-bottom:0; }
+    .model-results { max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; }
+    .model-results button { display:block; width:100%; text-align:left; padding:7px 10px; border:0; background:transparent; color:var(--text-primary); cursor:pointer; overflow-wrap:anywhere; }
+    .model-results button:hover, .model-results button[aria-selected="true"] { background:var(--accent-dim); }
+    #modelHint { display:none; }
+    .save-section { border-top:0 !important; }
+    .section:has(+ .save-section) { border-bottom:0; }
     .model-input-wrapper { position: relative; }
+    #fetch-text-models, #fetch-vision-models { margin-top: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 11px; }
+    #fetch-text-models:disabled, #fetch-vision-models:disabled { opacity: .5; cursor: default; }
     .model-input-wrapper input { padding-right: 32px; }
     .btn-model-check {
       position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -699,6 +710,7 @@
     <div class="ai-settings-tabs">
       <button class="ai-tab-btn active" data-ai-tab="text">Text API</button>
       <button class="ai-tab-btn" data-ai-tab="vision">Vision API</button>
+      <button class="ai-tab-btn" data-ai-tab="prompts" id="prompts-tab">Prompts</button>
     </div>
 
     <!-- Text API Tab -->
@@ -721,11 +733,14 @@
         <div class="field-hint" id="keyHint"></div>
       </div>
       <div class="setting-group">
-        <label for="apiModel">Model</label>
+        <div class="model-label-row"><label for="apiModel">Model</label><button type="button" id="fetch-text-models">Fetch models</button></div>
         <div class="model-input-wrapper">
-          <input type="text" id="apiModel" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+          <input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="text-model-results" type="text" id="apiModel" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
           <button type="button" id="test-text-api" class="btn-model-check" title="Test connection">✓</button>
         </div>
+        <datalist id="text-model-list"></datalist><div id="text-model-results" class="model-results" role="listbox" hidden></div>
+
+        <div id="text-models-result" class="field-hint" role="status"></div>
         <div class="field-hint" id="modelHint"></div>
         <div id="test-text-result" class="test-inline-result"></div>
       </div>
@@ -750,11 +765,14 @@
         </div>
       </div>
       <div class="setting-group">
-        <label for="vision-model">Model</label>
+        <div class="model-label-row"><label for="vision-model">Model</label><button type="button" id="fetch-vision-models">Fetch models</button></div>
         <div class="model-input-wrapper">
-          <input type="text" id="vision-model" placeholder="gpt-4o / gemini-pro-vision" autocomplete="off" spellcheck="false">
+          <input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="vision-model-results" type="text" id="vision-model" placeholder="gpt-4o / gemini-pro-vision" autocomplete="off" spellcheck="false">
           <button type="button" id="test-vision-api" class="btn-model-check" title="Test connection">✓</button>
         </div>
+        <datalist id="vision-model-list"></datalist><div id="vision-model-results" class="model-results" role="listbox" hidden></div>
+
+        <div id="vision-models-result" class="field-hint" role="status"></div>
         <div id="test-vision-result" class="test-inline-result"></div>
       </div>
       </div>
@@ -772,6 +790,13 @@
         </label>
         <p class="hint">Copies Text API endpoint and key. Model must still be set manually.</p>
       </div>
+    </div>
+    <div class="ai-tab-panel" id="ai-tab-prompts">
+      <p class="hint" id="prompt-help"></p>
+      <div id="prompt-editors"></div>
+      <button type="button" id="save-prompts"></button>
+      <button type="button" id="reset-prompts"></button>
+      <div id="prompt-status" role="status"></div>
     </div>
   </div>
 
@@ -827,7 +852,7 @@
   </div>
 
   <div class="footer">
-    <span class="footer-version">v2.1.2</span>
+    <span class="footer-version">v2.2.3</span>
     <a class="footer-link" href="https://github.com/luzion89/Context-Explain" target="_blank"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-1px;margin-right:3px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub ↗</a>
   </div>
 
@@ -863,6 +888,7 @@
 <script src="lib/katex.min.js"></script>
 <script src="lib/jszip.min.js"></script>
 <link rel="stylesheet" href="lib/katex.min.css">
+<script src="lib/prompts.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>
