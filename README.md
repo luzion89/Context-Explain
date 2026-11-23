@@ -6,7 +6,7 @@
 
 **AI-powered contextual explanations, right where you read.**
 
-[![Version](https://img.shields.io/badge/version-2.2.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.3.1-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -21,6 +21,20 @@ English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Cont
 
 ---
 
+## v2.3.1 updates
+
+- Fixed BookOrbit page turns caused by clicks on extension controls.
+- The popup footer now displays the installed manifest version. Selection compatibility is documented below.
+
+## v2.3.0 reader compatibility
+
+- Text actions work in frames where Chrome permits injection, including eligible nested and dynamic frames.
+- Native selections in Foliate EPUB chapters, HTML PDF text layers, and open shadow roots use their own document or root. Context comes from the selected range and is limited to 500 characters on each side.
+- Reader conversations keep the reading page as their source. Page annotations still work on supported web documents with stable addresses. EPUB, PDF text layers, temporary frames, and shadow roots skip source-text markup. EPUB history does not store CFI.
+- The built-in Chrome PDF viewer, pages that block extension injection, closed shadow roots, and scanned or canvas-only pages do not expose usable DOM selections. The tested WeRead chapter rendered its body in a canvas without a native text selection. Use a selectable HTML text layer for PDF documents where available.
+
+See the [compatibility notes and test instructions](docs/reader-compatibility.md).
+
 ## Updates in v2.2.0–v2.2.3
 
 - **Model discovery** for text and vision settings: OpenAI, Anthropic (including pagination), DeepSeek, and third-party OpenAI-compatible `/models` endpoints. Search the returned IDs or enter a custom ID; manual entry remains available after failures.
@@ -33,7 +47,7 @@ Limitations: discovered IDs are not guaranteed to support the selected chat/visi
 
 ## ✦ What is Context Explain?
 
-Highlight **any word, phrase, or passage** on any webpage. Three small buttons appear. Click to get an instant AI explanation that understands exactly where you are — the sentences before and after, the topic of the page, the register of the text.
+Highlight **a word, phrase, or passage** on a supported webpage. Three small buttons appear. Click to get an instant AI explanation that understands exactly where you are — the sentences before and after, the topic of the page, the register of the text.
 
 Right-click any **image** to ask the AI what it shows, or pose a specific question about it.
 

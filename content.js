@@ -1,3 +1,22 @@
+(() => {
+if (globalThis.ctxExplainInitialized || !document.body?.style) return;
+globalThis.ctxExplainInitialized = true;
+
+// Chrome can inject into the network PDF shell without access to its internal viewer.
+if (document.contentType === 'application/pdf') return;
+
+const { ctxFrame, ctxSelection } = globalThis;
+const createElement = name => document.createElementNS('http://www.w3.org/1999/xhtml', name);
+const selectionToken = crypto.randomUUID?.() || Math.random().toString(36);
+const readerControls = new WeakSet();
+
+function isolateReaderControls(root) {
+  if (!ctxFrame.isFoliate()) return;
+  readerControls.add(root);
+  for (const type of ['focusin', 'keydown', 'keyup', 'touchstart', 'touchmove', 'touchend', 'touchcancel']) {
+    root.addEventListener(type, event => event.stopPropagation());
+  }
+}
 let panelLanguage = 'English';
 const PANEL_LANGUAGE = {"English": ["Copy", "Copied!", "Recap", "Thinking", "Network", "Ask a follow-up question…", "Thinking…", "Explaining…", "Done", "Retrying…", "Translating…", "Ask mode", "Searching…", "Retry", "Close", "Pin panel", "Unpin panel", "Send"], "Chinese (Simplified)": ["复制", "已复制", "总结", "深度思考", "联网搜索", "输入追问…", "正在思考…", "正在解释…", "完成", "正在重试…", "正在翻译…", "提问模式", "正在搜索…", "重试", "关闭", "固定面板", "取消固定", "发送"], "Japanese": ["コピー", "コピーしました", "要約", "思考", "ウェブ検索", "追加の質問を入力…", "思考中…", "説明中…", "完了", "再試行中…", "翻訳中…", "質問モード", "検索中…", "再試行", "閉じる", "固定", "固定を解除", "送信"], "Korean": ["복사", "복사됨", "요약", "깊이 생각", "웹 검색", "추가 질문 입력…", "생각 중…", "설명 중…", "완료", "다시 시도 중…", "번역 중…", "질문 모드", "검색 중…", "다시 시도", "닫기", "고정", "고정 해제", "보내기"]};
 function panelText(text) {
@@ -17,11 +36,26 @@ function localizePanel() {
  }
 }
 chrome.storage.sync.get(['responseLang'], data => { panelLanguage=data.responseLang || 'English';localizePanel(); });
-chrome.storage.onChanged.addListener((changes, area) => {if(area==='sync' && changes.responseLang){panelLanguage=changes.responseLang.newValue || 'English';localizePanel();}});
 
 /* ============================================================
    Context Explain — content.js
    ============================================================ */
+
+let currentSource = null;
+let contextUnavailable = false;
+let panelEvents;
+
+let htmlTemplate;
+function setMarkup(element, markup) {
+  if (document.contentType === 'text/html') {
+    element.innerHTML = markup;
+    return;
+  }
+  // EPUB XHTML uses the XML fragment parser. Render extension HTML in an inert HTML template.
+  htmlTemplate ||= document.implementation.createHTMLDocument().createElement('template');
+  htmlTemplate.innerHTML = markup;
+  element.replaceChildren(htmlTemplate.content);
+}
 
 // ─── Keyboard Event Isolation ────────────────────────────────────────────────
 // Prevents keyboard events inside the Shadow DOM panel from leaking to the page.
@@ -110,30 +144,31 @@ function renderMarkdown(raw) {
 }
 
 // ─── Mermaid renderer ────────────────────────────────────────────────────────
-function renderMermaidBlocks(container) {
-  if (typeof mermaid === 'undefined') return;
+let mermaidReady;
+let mermaidId = 0;
+async function renderMermaidBlocks(container) {
   const blocks = container.querySelectorAll('.mermaid-block[data-raw]');
   if (!blocks.length) return;
-
-  // Initialize once
-  if (!renderMermaidBlocks._init) {
-    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-    renderMermaidBlocks._init = true;
-  }
-
-  blocks.forEach((el, i) => {
-    const raw = el.dataset.raw
-      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
-    const id = `mermaid-${Date.now()}-${i}`;
-    mermaid.render(id, raw).then(({ svg }) => {
-      el.innerHTML = svg;
-      el.removeAttribute('data-raw');
-    }).catch(err => {
-      el.innerHTML = `<pre class="mermaid-error">Mermaid error: ${err.message||err}</pre>`;
-    });
+  mermaidReady ||= import(chrome.runtime.getURL('lib/mermaid.min.js')).then(() => {
+    globalThis.mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+    return globalThis.mermaid;
   });
+  for (const el of blocks) {
+    const raw = el.dataset.raw.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    try {
+      const renderer = await mermaidReady;
+      if (!el.isConnected) continue;
+      const { svg } = await renderer.render('ctx-mermaid-' + ++mermaidId, raw);
+      setMarkup(el, svg);
+      el.removeAttribute('data-raw');
+    } catch (err) {
+      const error = createElement('pre');
+      error.className = 'mermaid-error';
+      error.textContent = 'Mermaid error: ' + err.message;
+      el.replaceChildren(error);
+    }
+  }
 }
-
 
 function getThemeVarsCSS() {
   return `
@@ -215,6 +250,13 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
   .panel.visible { opacity: 1; transform: translateY(0) scale(1); }
   .panel.has-geometry { max-height: none; }
+  .panel.compact-frame .panel-inner { overflow: auto; }
+  .panel.compact-frame .panel-header { padding: 4px 8px; }
+  .panel.compact-frame .term-block { padding: 3px 8px; max-height: 28px; }
+  .panel.compact-frame .footer-actions { padding: 3px 8px; }
+  .panel.compact-frame .followup-area { padding: 4px 8px; }
+  .panel.compact-frame .followup-input { min-width: 0; }
+  .panel.compact-frame .ctx-resize-handle { display: none; }
 
   .panel-inner {
     display: flex; flex-direction: column; flex: 1; min-height: 0;
@@ -526,102 +568,46 @@ function getHostButtonColors() {
   };
 }
 
-function isEditable(node) {
-  if (!node) return false;
-  if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') return true;
-  if (node.isContentEditable) return true;
-  if (node.closest && node.closest('[contenteditable="true"]')) return true;
-  return false;
-}
-
-function extractContext(selection) {
-  const selectedText = selection.toString().trim();
-  const range = selection.getRangeAt(0);
-
-  // Use the full document body text to capture cross-paragraph context
-  const fullText = (document.body.innerText || document.body.textContent || '');
-  // Normalize: collapse runs of whitespace to single space for reliable matching
-  const normFull = fullText.replace(/\s+/g, ' ');
-  const normTerm  = selectedText.replace(/\s+/g, ' ');
-
-  let idx = fullText.indexOf(selectedText);
-  if (idx === -1) {
-    // Fall back to normalized match, then map offset back to raw
-    const ni = normFull.indexOf(normTerm);
-    if (ni === -1) {
-      // Last resort: partial match on first 20 chars
-      idx = fullText.indexOf(selectedText.slice(0, 20));
-    } else {
-      // Map normalized index to raw text position
-      let c = 0;
-      for (let i = 0; i < fullText.length; i++) {
-        if (c === ni) { idx = i; break; }
-        // Skip collapsing whitespace in raw
-        if (i > 0 && /\s/.test(fullText[i]) && /\s/.test(fullText[i - 1])) continue;
-        c++;
-      }
-      if (idx === -1 || c < ni) idx = fullText.indexOf(selectedText.slice(0, 20));
-    }
-  }
-
-  const contextLen = 500;
-  let before = '', after = '';
-  if (idx >= 0) {
-    before = fullText.substring(Math.max(0, idx - contextLen), idx);
-    after  = fullText.substring(idx + selectedText.length, idx + selectedText.length + contextLen);
-  }
-
-  return {
-    selectedText,
-    contextBefore: before.trimStart(),
-    contextAfter: after.trimEnd(),
-    range: range.cloneRange()
-  };
-}
-
 // Make a stable key from term + context snippet (handles same word in different places)
 function makeContextKey(term, contextBefore, contextAfter) {
-  const snippet = (contextBefore.slice(-60) + '|' + term + '|' + contextAfter.slice(0, 60));
+  const snippet = ((contextBefore || '').slice(-60) + '|' + term + '|' + (contextAfter || '').slice(0, 60));
   return snippet;
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
-function saveToHistory(term, contextBefore, contextAfter, explanation, followUps, mode) {
-  const entry = {
-    id: Date.now() + Math.random().toString(36).slice(2),
-    ts: Date.now(),
-    url: location.href,
-    pageTitle: document.title,
-    term, contextBefore, contextAfter,
-    explanation,
-    followUps: followUps || [],
-    mode: mode || 'explain'
-  };
-  return new Promise(resolve => {
-    chrome.storage.local.get(['ctxHistory'], (data) => {
-      const hist = data.ctxHistory || [];
-      hist.unshift(entry);
-      if (hist.length > 2000) hist.length = 2000;
-      chrome.storage.local.set({ ctxHistory: hist }, () => resolve(entry));
-    });
-  });
+async function writeHistory(action, data) {
+  try {
+    return (await chrome.runtime.sendMessage({ type: 'CTX_HISTORY', action, ...data }))?.ok;
+  } catch {
+    return false;
+  }
 }
 
-function updateHistoryFollowup(historyId, question, answer) {
-  if (!historyId) return Promise.resolve();
-  return new Promise(resolve => {
-    chrome.storage.local.get(['ctxHistory'], (data) => {
-      const hist = data.ctxHistory || [];
-      const entry = hist.find(e => e.id === historyId);
-      if (entry) {
-        if (!entry.followUps) entry.followUps = [];
-        entry.followUps.push({ q: question, a: answer });
-        chrome.storage.local.set({ ctxHistory: hist }, resolve);
-      } else {
-        resolve();
-      }
-    });
-  });
+async function saveToHistory(term, contextBefore, contextAfter, explanation, followUps, mode, source) {
+  const { sourceUrl, documentTitle, frameUrl, sourceType, contextQuality } = await source;
+  const entry = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2),
+    ts: Date.now(),
+    url: sourceUrl,
+    pageTitle: documentTitle,
+    frameUrl: ctxFrame.inFrame ? ctxFrame.stableUrl(frameUrl) : '',
+    sourceType, contextQuality,
+    term, contextBefore, contextAfter,
+    explanation, followUps, mode
+  };
+  return await writeHistory('add', { entry }) ? entry : null;
+}
+
+function updateHistoryFollowup(id, q, a) {
+  if (!id) return;
+  return writeHistory('followup', { id, followup: { q, a } });
+}
+
+function canAnnotate(source, range) {
+  return ['web', 'iframe'].includes(source.sourceType) &&
+    Boolean(ctxFrame.stableUrl(location.href)) && range?.startContainer.getRootNode() === document &&
+    range.endContainer.getRootNode() === document && !range.collapsed &&
+    !range.startContainer.parentElement?.closest('.textLayer, [data-pdf-text-layer]');
 }
 
 let currentHistoryId = null;
@@ -629,51 +615,35 @@ let currentHistoryId = null;
 // ─── Page Annotation ──────────────────────────────────────────────────────────
 
 function annotateRange(range, contextKey, entry) {
-  if (!range) return;
+  if (!canAnnotate(entry.sourceType ? entry : ctxFrame.source(), range)) return;
   try {
-    // Wrap selected text in <mark> elements
-    const marks = [];
-    const fragment = range.cloneContents();
-    const text = fragment.textContent;
-    if (!text.trim()) return;
-
-    // Create wrapper span
-    const wrapper = document.createElement('span');
-    wrapper.className = 'ctx-explain-mark';
-    wrapper.dataset.contextKey = contextKey;
-    Object.assign(wrapper.style, {
-      borderBottom: '2px solid rgba(232,160,48,0.7)',
-      cursor: 'pointer',
-      position: 'relative',
-      display: 'inline',
-    });
-
-    // Surround range contents
-    try {
-      range.surroundContents(wrapper);
-      marks.push(wrapper);
-    } catch (e) {
-      // Range spans multiple elements — wrap each text node individually
-      const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT);
-      const textNodes = [];
-      let node;
-      while ((node = walker.nextNode())) {
-        if (range.intersectsNode(node)) textNodes.push(node);
+    const { startContainer, startOffset, endContainer, endOffset } = range;
+    const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT);
+    const slices = [];
+    let node = walker.currentNode.nodeType === Node.TEXT_NODE ? walker.currentNode : walker.nextNode();
+    while (node) {
+      if (range.intersectsNode(node) && !node.parentElement.closest('script,style,[hidden],[aria-hidden="true"],.ctx-explain-mark')) {
+        const start = node === startContainer ? startOffset : 0;
+        const end = node === endContainer ? endOffset : node.length;
+        if (node.data.slice(start, end).trim()) slices.push({ node, start, end });
       }
-      for (const tn of textNodes) {
-        const span = document.createElement('span');
-        span.className = 'ctx-explain-mark';
-        span.dataset.contextKey = contextKey;
-        Object.assign(span.style, {
-          borderBottom: '2px solid rgba(232,160,48,0.7)',
-          cursor: 'pointer',
-          display: 'inline',
-        });
-        tn.parentNode.insertBefore(span, tn);
-        span.appendChild(tn);
-        marks.push(span);
-      }
+      node = walker.nextNode();
     }
+    const marks = [];
+    for (const { node, start, end } of slices) {
+      const piece = document.createRange();
+      piece.setStart(node, start);
+      piece.setEnd(node, end);
+      const mark = createElement('span');
+      mark.className = 'ctx-explain-mark';
+      mark.dataset.contextKey = contextKey;
+      Object.assign(mark.style, {
+        borderBottom: '2px solid rgba(232,160,48,0.7)', cursor: 'pointer', display: 'inline'
+      });
+      piece.surroundContents(mark);
+      marks.push(mark);
+    }
+    if (!marks.length) return;
 
     // Store annotation
     if (!pageAnnotations.has(contextKey)) {
@@ -705,7 +675,7 @@ function attachMarkHover(mark, contextKey) {
 
     const rect = mark.getBoundingClientRect();
 
-    hoverPopup = document.createElement('div');
+    hoverPopup = createElement('div');
     hoverPopup.className = 'ctx-explain-hover-popup';
     Object.assign(hoverPopup.style, {
       position: 'fixed',
@@ -718,7 +688,7 @@ function attachMarkHover(mark, contextKey) {
     });
 
     // ── View History button ──
-    const viewBtn = document.createElement('button');
+    const viewBtn = createElement('button');
     // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
     // Colors resolved dynamically from current panel theme.
     const hbc = getHostButtonColors();
@@ -740,7 +710,7 @@ function attachMarkHover(mark, contextKey) {
     });
 
     // ── Remove button ──
-    const removeBtn = document.createElement('button');
+    const removeBtn = createElement('button');
     removeBtn.textContent = '✕';
     Object.assign(removeBtn.style, {
       height: '24px',
@@ -796,7 +766,8 @@ function attachMarkHover(mark, contextKey) {
     removeBtn.addEventListener('click', e => {
       e.stopPropagation();
       dismissPopup();
-      removeAnnotation(contextKey);
+      const annotation = pageAnnotations.get(contextKey);
+      if (annotation) writeHistory('delete', { id: annotation.entry.id });
     });
   };
 
@@ -826,17 +797,6 @@ function removeAnnotation(contextKey) {
 
   pageAnnotations.delete(contextKey);
   redrawScrollbarMarkers();
-
-  // Delete from storage history too
-  chrome.storage.local.get(['ctxHistory'], (data) => {
-    const hist = data.ctxHistory || [];
-    const entry = ann.entry;
-    const idx = hist.findIndex(e => e.id === entry.id);
-    if (idx !== -1) {
-      hist.splice(idx, 1);
-      chrome.storage.local.set({ ctxHistory: hist });
-    }
-  });
 }
 
 // ─── Scrollbar Overlay ────────────────────────────────────────────────────────
@@ -844,7 +804,7 @@ function removeAnnotation(contextKey) {
 function ensureScrollbarCanvas() {
   if (scrollbarCanvas && document.body.contains(scrollbarCanvas)) return scrollbarCanvas;
 
-  scrollbarCanvas = document.createElement('canvas');
+  scrollbarCanvas = createElement('canvas');
   scrollbarCanvas.id = 'ctx-explain-scrollbar';
   const W = 12;
   Object.assign(scrollbarCanvas.style, {
@@ -860,7 +820,7 @@ function ensureScrollbarCanvas() {
   scrollbarCanvas.height = window.innerHeight;
   document.body.appendChild(scrollbarCanvas);
 
-  window.addEventListener('resize', redrawScrollbarMarkers);
+  window.addEventListener('resize', redrawScrollbarMarkers, { signal: documentEvents.signal });
   return scrollbarCanvas;
 }
 
@@ -905,6 +865,9 @@ function openFromHistory(entry, btnX, btnY) {
   currentContextBefore = entry.contextBefore || '';
   currentContextAfter = entry.contextAfter || '';
   currentHistoryId = entry.id;
+  currentSource = Promise.resolve({
+    sourceUrl: entry.url, documentTitle: entry.pageTitle, contextQuality: entry.contextQuality
+  });
   _askModeFirstMessage = false;
 
   const contextKey = makeContextKey(entry.term, entry.contextBefore, entry.contextAfter);
@@ -921,7 +884,7 @@ function openFromHistory(entry, btnX, btnY) {
   // Show cached explanation immediately (no streaming)
   if (currentResponseBlock) {
     if (entry.explanation) {
-      currentResponseBlock.innerHTML = renderMarkdown(entry.explanation);
+      setMarkup(currentResponseBlock, renderMarkdown(entry.explanation));
       currentResponseBlock.dataset.md = entry.explanation;
       renderMermaidBlocks(currentResponseBlock);
     } else {
@@ -937,14 +900,14 @@ function openFromHistory(entry, btnX, btnY) {
       conversationMessages.push({ role: 'user',      content: fu.q });
       conversationMessages.push({ role: 'assistant', content: fu.a });
 
-      const bubble = document.createElement('div');
+      const bubble = createElement('div');
       bubble.className = 'question-bubble';
       bubble.textContent = fu.q;
       conversationBody.appendChild(bubble);
 
-      const block = document.createElement('div');
+      const block = createElement('div');
       block.className = 'response-block';
-      block.innerHTML = renderMarkdown(fu.a);
+      setMarkup(block, renderMarkdown(fu.a));
       block.dataset.md = fu.a;
       renderMermaidBlocks(block);
       conversationBody.appendChild(block);
@@ -970,17 +933,17 @@ function removeTriggerBtn() {
   triggerBtn = null;
 }
 
-function showTriggerBtn(x, y) {
+function showTriggerBtn(x, y, snapshot) {
   removeTriggerBtn();
 
   // Wrapper div holding two pill buttons side by side
-  const wrap = document.createElement('div');
+  const wrap = createElement('div');
   wrap.id = 'ctx-explain-trigger';
   Object.assign(wrap.style, {
     position: 'fixed',
     zIndex: '2147483647',
-    left: Math.min(x, window.innerWidth - 76) + 'px',
-    top: Math.min(y, window.innerHeight - 32) + 'px',
+    left: x + 'px',
+    top: y + 'px',
     display: 'flex',
     gap: '4px',
     opacity: '0',
@@ -990,8 +953,8 @@ function showTriggerBtn(x, y) {
     pointerEvents: 'all',
   });
 
-  // NOTE: These buttons are injected into the host page DOM (not Shadow DOM).
-  // CSS variables don't propagate here. Colors resolved from current theme.
+  const controls = wrap.attachShadow({ mode: 'open' });
+  isolateReaderControls(controls);
   const hbc = getHostButtonColors();
   const btnStyle = {
     width: '30px',
@@ -1012,8 +975,8 @@ function showTriggerBtn(x, y) {
   };
 
   // ── Explain button ──
-  const explainBtn = document.createElement('button');
-  explainBtn.innerHTML = '✦';
+  const explainBtn = createElement('button');
+  explainBtn.textContent = '✦';
   explainBtn.title = 'Explain';
   Object.assign(explainBtn.style, btnStyle);
 
@@ -1025,8 +988,8 @@ function showTriggerBtn(x, y) {
   explainBtn.addEventListener('mouseleave', () => { explainLabel.style.opacity = '0'; explainLabel.style.transform = 'translateX(-50%) translateY(-3px)'; });
 
   // ── Ask button ──
-  const askBtn = document.createElement('button');
-  askBtn.innerHTML = '?';
+  const askBtn = createElement('button');
+  askBtn.textContent = '?';
   askBtn.className = 'ctx-ask-btn';
   Object.assign(askBtn.style, {
     ...btnStyle,
@@ -1042,12 +1005,11 @@ function showTriggerBtn(x, y) {
   askBtn.addEventListener('mouseenter', () => { askLabel.style.opacity = '1'; askLabel.style.transform = 'translateX(-50%) translateY(0)'; });
   askBtn.addEventListener('mouseleave', () => { askLabel.style.opacity = '0'; askLabel.style.transform = 'translateX(-50%) translateY(-3px)'; });
 
-  wrap.appendChild(explainBtn);
-  wrap.appendChild(askBtn);
+  controls.append(explainBtn, askBtn);
 
   // ── Translate button ──
-  const translateBtn = document.createElement('button');
-  translateBtn.innerHTML = '⇌';
+  const translateBtn = createElement('button');
+  translateBtn.textContent = '⇌';
   translateBtn.title = 'Translate';
   Object.assign(translateBtn.style, btnStyle);
 
@@ -1057,37 +1019,20 @@ function showTriggerBtn(x, y) {
   translateBtn.addEventListener('mouseenter', () => { translateLabel.style.opacity = '1'; translateLabel.style.transform = 'translateX(-50%) translateY(0)'; });
   translateBtn.addEventListener('mouseleave', () => { translateLabel.style.opacity = '0'; translateLabel.style.transform = 'translateX(-50%) translateY(-3px)'; });
 
-  wrap.appendChild(translateBtn);
+  controls.appendChild(translateBtn);
 
   // Stop mousedown from clearing selection
   wrap.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); });
 
-  explainBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length === 0) return;
-    const ctx = extractContext(sel);
-    removeTriggerBtn();
-    showPanel(ctx, x, y, 'explain');
-  });
-
-  askBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length === 0) return;
-    const ctx = extractContext(sel);
-    removeTriggerBtn();
-    showPanel(ctx, x, y, 'ask');
-  });
-
-  translateBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length === 0) return;
-    const ctx = extractContext(sel);
-    removeTriggerBtn();
-    showPanel(ctx, x, y, 'translate');
-  });
+  for (const [button, mode] of [[explainBtn, 'explain'], [askBtn, 'ask'], [translateBtn, 'translate']]) {
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      if (triggerBtn !== wrap) return;
+      removeTriggerBtn();
+      const ctx = ctxSelection.refresh(snapshot, document, ctxFrame.source());
+      showPanel(ctx, x, y, mode);
+    });
+  }
 
   document.body.appendChild(wrap);
   triggerBtn = wrap;
@@ -1098,7 +1043,7 @@ function showTriggerBtn(x, y) {
 }
 
 function makeTooltip(text) {
-  const tip = document.createElement('span');
+  const tip = createElement('span');
   tip.textContent = text;
   Object.assign(tip.style, {
     position: 'absolute',
@@ -1123,6 +1068,10 @@ function makeTooltip(text) {
 // ─── Panel core builder ───────────────────────────────────────────────────────
 function removePanel() {
   abortStream();
+  panelEvents?.abort();
+  _savedSelectionRange = null;
+  currentSource = null;
+  contextUnavailable = false;
   _askModeFirstMessage = false;
   _askModeQuestion = null;
   _currentMode = 'explain';
@@ -1149,32 +1098,34 @@ function abortStream() {
 
 // contextKey passed so we can look up saved position
 function buildPanel(btnX, btnY, contextKey, mode) {
-  panelRoot = document.createElement('div');
+  panelEvents = new AbortController();
+  panelRoot = createElement('div');
   panelRoot.id = 'ctx-explain-root';
   Object.assign(panelRoot.style, { position: 'fixed', top: '0', left: '0', zIndex: '2147483647', pointerEvents: 'none' });
   document.body.appendChild(panelRoot);
 
   shadowRoot = panelRoot.attachShadow({ mode: 'open' });
+  isolateReaderControls(shadowRoot);
   setupKeyboardIsolation(shadowRoot);
 
-  const styleEl = document.createElement('style');
+  const styleEl = createElement('style');
   styleEl.textContent = PANEL_STYLES;
   shadowRoot.appendChild(styleEl);
 
   // Inject KaTeX CSS into Shadow DOM (fonts referenced via extension URL)
   if (typeof katex !== 'undefined' && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
     try {
-      const katexLink = document.createElement('link');
+      const katexLink = createElement('link');
       katexLink.rel = 'stylesheet';
       katexLink.href = chrome.runtime.getURL('lib/katex.min.css');
       shadowRoot.appendChild(katexLink);
     } catch (e) { /* extension context invalidated — skip */ }
   }
 
-  panelEl = document.createElement('div');
+  panelEl = createElement('div');
   panelEl.className = 'panel';
   panelEl.style.pointerEvents = 'all';
-  panelEl.innerHTML = `
+  setMarkup(panelEl, `
     <div class="panel-inner">
       <div class="panel-header">
         <span class="logo">✦ Context Explain</span>
@@ -1205,7 +1156,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     <div class="ctx-resize-e ctx-resize-handle"></div>
     <div class="ctx-resize-w ctx-resize-handle"></div>
     <div class="ctx-resize-s ctx-resize-handle"></div>
-  `;
+  `);
   shadowRoot.appendChild(panelEl);
   localizePanel();
 
@@ -1245,6 +1196,14 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     });
   }
   footerStatus = panelEl.querySelector('.footer-status');
+  if (contextUnavailable) {
+    const notice = createElement('div');
+    notice.className = 'footer-status';
+    notice.style.padding = '0 12px 6px';
+    notice.textContent = panelLanguage === 'Chinese (Simplified)' ? '仅使用所选文字，周围语境不可用。' :
+      'Surrounding context is unavailable. Using the selection only.';
+    panelEl.querySelector('.term-block').after(notice);
+  }
   retryBtn = panelEl.querySelector('.retry-btn');
   followupArea = panelEl.querySelector('.followup-area');
 
@@ -1260,9 +1219,9 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   followupSend = panelEl.querySelector('.followup-send');
 
   // Initial response block
-  currentResponseBlock = document.createElement('div');
+  currentResponseBlock = createElement('div');
   currentResponseBlock.className = 'response-block';
-  currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Thinking…') + '</span>';
+  setMarkup(currentResponseBlock, '<span class="status-loading">' + panelText('Thinking…') + '</span>');
   conversationBody.appendChild(currentResponseBlock);
 
   // ── Position: restore saved position or calculate from trigger ──
@@ -1302,9 +1261,9 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     if (isStreaming) return;
     retryBtn.classList.remove('visible');
     if (currentResponseBlock && conversationBody.contains(currentResponseBlock)) currentResponseBlock.remove();
-    currentResponseBlock = document.createElement('div');
+    currentResponseBlock = createElement('div');
     currentResponseBlock.className = 'response-block';
-    currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Retrying…') + '</span>';
+    setMarkup(currentResponseBlock, '<span class="status-loading">' + panelText('Retrying…') + '</span>');
     conversationBody.appendChild(currentResponseBlock);
     _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
     if (footerStatus) { footerStatus.textContent = panelText('Retrying…'); footerStatus.className = 'footer-status streaming'; }
@@ -1316,7 +1275,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   });
 
   // Copy
-  copyBtn.addEventListener('click', () => {
+  copyBtn.addEventListener('click', async () => {
     // Walk all children in order, picking up question-bubbles and response-blocks
     const parts = [];
 
@@ -1333,10 +1292,11 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       }
     });
     const texts = parts.join('\n\n');
-    const pageRef = `*Source: [${document.title || location.href}](${location.href})*`;
+    const { sourceUrl, documentTitle } = await (currentSource || ctxFrame.resolveSource());
+    const pageRef = sourceUrl ? `*Source: [${documentTitle || sourceUrl}](${sourceUrl})*` : '';
     const finalText = texts + '\n\n' + pageRef;
     navigator.clipboard.writeText(finalText).catch(() => {
-      const ta = document.createElement('textarea');
+      const ta = createElement('textarea');
       ta.value = finalText;
       Object.assign(ta.style, { position:'fixed', opacity:'0' });
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
@@ -1372,7 +1332,24 @@ function buildPanel(btnX, btnY, contextKey, mode) {
 
   // Resize handles + geometry persistence
   setupResize(panelEl);
-  restorePanelGeometry(panelEl, mode === 'translate');
+  if (ctxFrame.inFrame) fitFramePanel(panelEl, btnX, btnY);
+  else restorePanelGeometry(panelEl, mode === 'translate');
+}
+
+function fitFramePanel(panel, x, y) {
+  const bounds = ctxFrame.viewport();
+  const maxWidth = Math.max(0, bounds.right - bounds.left - 8);
+  const maxHeight = Math.max(0, bounds.bottom - bounds.top - 8);
+  const width = Math.min(380, maxWidth);
+  const height = Math.min(520, maxHeight);
+  Object.assign(panel.style, {
+    width: width + 'px', height: height + 'px',
+    maxWidth: maxWidth + 'px', maxHeight: maxHeight + 'px',
+    left: Math.max(bounds.left + 4, Math.min(x, bounds.right - width - 4)) + 'px',
+    top: Math.max(bounds.top + 4, Math.min(y, bounds.bottom - height - 4)) + 'px'
+  });
+  panel.classList.add('has-geometry');
+  panel.classList.toggle('compact-frame', height < 240 || width < 300);
 }
 
 function forceClosePanel() {
@@ -1388,9 +1365,9 @@ function showPanel(ctx, btnX, btnY, mode) {
   currentContextAfter = ctx.contextAfter;
   currentHistoryId = null;
 
-  // Save the current selection range now, before it can be modified by panel interactions
-  const _sel = window.getSelection();
-  _savedSelectionRange = (_sel && _sel.rangeCount > 0) ? _sel.getRangeAt(0).cloneRange() : null;
+  currentSource = ctxFrame.resolveSource(ctx);
+  _savedSelectionRange = canAnnotate(ctx, ctx.range) ? ctx.range : null;
+  contextUnavailable = ctx.contextQuality === 'selection-only';
 
   const contextKey = makeContextKey(ctx.selectedText, ctx.contextBefore, ctx.contextAfter);
   buildPanel(btnX, btnY, contextKey, mode);
@@ -1485,8 +1462,9 @@ function setupResize(panelEl) {
         if (animFrame) cancelAnimationFrame(animFrame);
         animFrame = requestAnimationFrame(() => {
           const dx = ev.clientX - startX, dy = ev.clientY - startY;
-          const maxW = window.innerWidth * 0.9;
-          const maxH = window.innerHeight * 0.9;
+          const bounds = ctxFrame.viewport();
+          const maxW = Math.min(window.innerWidth * 0.9, bounds.right - bounds.left);
+          const maxH = Math.min(window.innerHeight * 0.9, bounds.bottom - bounds.top);
 
           if (resizeW) {
             let newW = fromLeft ? startW - dx : startW + dx;
@@ -1510,13 +1488,14 @@ function setupResize(panelEl) {
         document.removeEventListener('mouseup', onUp);
         savePanelGeometry(panelEl);
       };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      document.addEventListener('mousemove', onMove, { signal: panelEvents.signal });
+      document.addEventListener('mouseup', onUp, { signal: panelEvents.signal });
     });
   });
 }
 
 async function savePanelGeometry(panelEl) {
+  if (ctxFrame.inFrame || !panelEl?.isConnected) return;
   try {
     const geo = {
       x: parseFloat(panelEl.style.left) || 0,
@@ -1571,29 +1550,22 @@ function makeDraggable(panel, handle) {
 
   const onMove = (e) => {
     if (!dragging) return;
-    let nx = Math.max(4, Math.min(e.clientX - ox, window.innerWidth - 384));
-    let ny = Math.max(4, Math.min(e.clientY - oy, window.innerHeight - 60));
+    const bounds = ctxFrame.viewport();
+    const nx = Math.max(bounds.left + 4, Math.min(e.clientX - ox, bounds.right - panel.offsetWidth - 4));
+    const ny = Math.max(bounds.top + 4, Math.min(e.clientY - oy, bounds.bottom - (ctxFrame.inFrame ? panel.offsetHeight : 60)));
     panel.style.left = nx + 'px';
     panel.style.top  = ny + 'px';
   };
 
   const onUp = () => { dragging = false; handle.style.cursor = 'grab'; savePanelGeometry(panelEl); };
 
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-
-  // Cleanup on panel removal
-  const check = setInterval(() => {
-    if (!panelRoot) {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      clearInterval(check);
-    }
-  }, 1000);
+  document.addEventListener('mousemove', onMove, { signal: panelEvents.signal });
+  document.addEventListener('mouseup', onUp, { signal: panelEvents.signal });
 }
 
 // ─── Follow-up / Ask-mode send ────────────────────────────────────────────────
 function sendFollowup() {
+  if (_currentMode.startsWith('image-')) return sendImageFollowup();
   const question = followupInput ? followupInput.value.trim() : '';
   if (!question || isStreaming) return;
 
@@ -1612,7 +1584,7 @@ function sendFollowup() {
     _askModeQuestion = question;
 
     // Show the question as a bubble
-    const bubble = document.createElement('div');
+    const bubble = createElement('div');
     bubble.className = 'question-bubble';
     bubble.textContent = question;
     conversationBody.appendChild(bubble);
@@ -1624,15 +1596,15 @@ function sendFollowup() {
     conversationMessages.push(previous);
     conversationMessages.push({ role: 'user', content: question });
 
-    const bubble = document.createElement('div');
+    const bubble = createElement('div');
     bubble.className = 'question-bubble';
     bubble.textContent = question;
     conversationBody.appendChild(bubble);
   }
 
-  currentResponseBlock = document.createElement('div');
+  currentResponseBlock = createElement('div');
   currentResponseBlock.className = 'response-block';
-  currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Thinking…') + '</span>';
+  setMarkup(currentResponseBlock, '<span class="status-loading">' + panelText('Thinking…') + '</span>');
   conversationBody.appendChild(currentResponseBlock);
 
   _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
@@ -1698,8 +1670,10 @@ function startStream() {
   }, 3000);
 
   // Run async fetch directly in content script
-  runFetch().catch(err => {
-    if (err.name === 'AbortError') return; // user closed panel — silent
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+  runFetch(signal).catch(err => {
+    if (signal.aborted || err.name === 'AbortError') return; // user closed panel — silent
     if (err.message === '__invalidated__') {
       handleStreamFailure('插件已更新，请刷新页面后重试。\nThe extension was reloaded — please refresh the page.');
       return;
@@ -1708,9 +1682,10 @@ function startStream() {
   });
 }
 
-async function runFetch() {
+async function runFetch(signal) {
   await ctxPromptsReady;
   const config = await loadConfig();
+  signal.throwIfAborted();
   const provider   = config.apiProvider || 'openai';
   const apiKey     = config.apiKey || '';
   const model      = config.apiModel  || defaultModel(provider);
@@ -1744,9 +1719,7 @@ async function runFetch() {
     systemPrompt = ctxPrompt('textSystem', panelLanguage, {responseLang: langInstruction});
   }
 
-  currentAbortController = new AbortController();
-  const signal = currentAbortController.signal;
-
+  if (contextUnavailable) systemPrompt += '\nOnly the selected text is available. Do not assume surrounding context.';
   if (provider === 'anthropic') {
     await fetchAnthropic({ apiKey, model, systemPrompt, messages: conversationMessages, signal });
   } else {
@@ -1884,13 +1857,12 @@ function handleStreamFailure(message) {
     const partial = accumulatedText.trim();
     if (partial.length > 20) {
       // Show partial content + error notice
-      currentResponseBlock.innerHTML =
-        renderMarkdown(partial) +
+      setMarkup(currentResponseBlock, renderMarkdown(partial) +
         `<div style="margin-top:10px;padding:6px 10px;background:rgba(200,80,80,0.07);border-radius:5px;border:1px solid rgba(200,80,80,0.15)">
            <span style="color:var(--error);font-size:12px">⚠ Stream interrupted — partial response shown.</span>
-         </div>`;
+         </div>`);
     } else {
-      currentResponseBlock.innerHTML = `<span class="error-msg">${escHtml(message)}</span>`;
+      setMarkup(currentResponseBlock, `<span class="error-msg">${escHtml(message)}</span>`);
     }
   }
 
@@ -1910,10 +1882,10 @@ function appendChunk(text) {
 
   // First chunk: replace "Thinking…" placeholder with streaming container
   if (!_streamingTextEl) {
-    currentResponseBlock.innerHTML = '';
-    _streamingTextEl = document.createElement('span');
+    currentResponseBlock.replaceChildren();
+    _streamingTextEl = createElement('span');
     _streamingTextEl.style.cssText = 'white-space:pre-wrap;word-break:break-word;';
-    const cursor = document.createElement('span');
+    const cursor = createElement('span');
     cursor.className = 'cursor-blink';
     currentResponseBlock.appendChild(_streamingTextEl);
     currentResponseBlock.appendChild(cursor);
@@ -1933,55 +1905,52 @@ function appendChunk(text) {
 async function onDone() {
   if (!isStreaming) return;
   abortStream();
+  // Keep the composer locked until the completed turn has a history ID.
+  isStreaming = true;
 
   _streamingTextEl = null;
   _rafPending = false;
 
   // Full markdown render exactly once, after stream completes
   if (currentResponseBlock) {
-    currentResponseBlock.innerHTML = renderMarkdown(accumulatedText);
+    setMarkup(currentResponseBlock, renderMarkdown(accumulatedText));
     currentResponseBlock.dataset.md = accumulatedText;
     renderMermaidBlocks(currentResponseBlock);
   }
 
-  const isInitial = conversationMessages.length === 1;
-
-  if (isInitial && !_askModeQuestion) {
-    // Explain/translate mode: first response — save as explanation
-    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, accumulatedText, [], _currentMode);
-    currentHistoryId = entry.id;
-
-    const contextKey = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
-    if (_savedSelectionRange) {
-      annotateRange(_savedSelectionRange, contextKey, entry);
-      _savedSelectionRange = null;
-      window.getSelection()?.removeAllRanges();
-    }
-  } else if (isInitial && _askModeQuestion) {
-    // Ask mode: first response — save with empty explanation, then add Q&A as followUp
-    const q = _askModeQuestion;
+  const panelAtCompletion = panelRoot;
+  if (conversationMessages.length === 1 && !currentHistoryId) {
+    const answer = accumulatedText;
+    const question = _askModeQuestion;
     _askModeQuestion = null;
-    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter, '', [], 'ask');
-    currentHistoryId = entry.id;
-    await updateHistoryFollowup(currentHistoryId, q, accumulatedText);
-
-    const contextKey2 = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
-    if (_savedSelectionRange) {
-      annotateRange(_savedSelectionRange, contextKey2, entry);
-      _savedSelectionRange = null;
-      window.getSelection()?.removeAllRanges();
+    const entry = await saveToHistory(currentTerm, currentContextBefore, currentContextAfter,
+      question ? '' : answer, question ? [{ q: question, a: answer }] : [],
+      question ? 'ask' : _currentMode, currentSource || ctxFrame.resolveSource());
+    if (panelRoot !== panelAtCompletion) return;
+    if (entry) {
+      currentHistoryId = entry.id;
+      if (_savedSelectionRange?.toString().trim() === currentTerm) {
+        const key = makeContextKey(currentTerm, currentContextBefore, currentContextAfter);
+        annotateRange(_savedSelectionRange, key, entry);
+        const selection = document.getSelection();
+        if (selection?.toString().trim() === currentTerm) selection.removeAllRanges();
+      }
     }
+    _savedSelectionRange = null;
   } else {
-    // Follow-up done (both modes)
     const lastUserMsg = conversationMessages[conversationMessages.length - 1];
     await updateHistoryFollowup(currentHistoryId, lastUserMsg.content, accumulatedText);
+    if (panelRoot !== panelAtCompletion) return;
   }
 
+  isStreaming = false;
+  if (followupSend) followupSend.disabled = !followupInput?.value.trim();
   if (copyBtn) copyBtn.disabled = false;
   if (recapBtn) recapBtn.disabled = false;
   if (footerStatus) { footerStatus.textContent = panelText('Done'); footerStatus.className = 'footer-status done'; }
   if (followupArea) followupArea.classList.add('visible');
-  if (followupInput) setTimeout(() => followupInput.focus(), 50);
+  const input = followupInput;
+  if (input) setTimeout(() => input.isConnected && input.focus(), 50);
 }
 
 function escHtml(s) {
@@ -1990,129 +1959,143 @@ function escHtml(s) {
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 
-// Shared logic: given the current selection, compute button position and show.
-// Returns true if a trigger button was shown.
-function tryShowFromSelection() {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return false;
+const documentEvents = new AbortController();
+const capture = { capture: true, signal: documentEvents.signal };
+let selectionTimer;
+let scrollRedrawTO;
+let pointerDown = false;
+let openRoots = [];
+let lastBoundaries;
+let selectionAt = 0;
 
-  const selectedText = sel.toString().trim();
-  if (selectedText.length === 0) return false;
-
-  // Skip editable nodes
-  const anchorEl = sel.anchorNode?.nodeType === Node.TEXT_NODE
-    ? sel.anchorNode.parentElement : sel.anchorNode;
-  const focusEl  = sel.focusNode?.nodeType  === Node.TEXT_NODE
-    ? sel.focusNode.parentElement  : sel.focusNode;
-  if (isEditable(anchorEl) || isEditable(focusEl)) return false;
-
-  try {
-    const range = sel.getRangeAt(0);
-    const rects = Array.from(range.getClientRects());
-    let lastRect = null;
-    for (let i = rects.length - 1; i >= 0; i--) {
-      if (rects[i].width > 0) { lastRect = rects[i]; break; }
-    }
-    if (!lastRect) lastRect = range.getBoundingClientRect();
-    if (!lastRect || lastRect.width === 0) return false;
-
-    const btnX = Math.min(lastRect.right + 4, window.innerWidth - 68);
-    const btnY = lastRect.top + (lastRect.height - 28) / 2;
-    showTriggerBtn(btnX, btnY);
-    return true;
-  } catch (err) {
-    return false;
-  }
+function sameBoundaries(a, b) {
+  return b && a.start === b.start && a.end === b.end &&
+    a.startOffset === b.startOffset && a.endOffset === b.endOffset;
 }
 
-document.addEventListener('mouseup', (e) => {
-  // Ignore clicks inside our own UI
-  if (panelEl && e.composedPath().includes(panelEl)) return;
-  if (triggerBtn && e.composedPath().includes(triggerBtn)) return;
-
-  // Read selection synchronously before any extension can mutate DOM/Range
-  if (!tryShowFromSelection()) {
-    // Only hide trigger if no text selected (not if it simply failed to show)
-    const sel = window.getSelection();
-    if (!sel || sel.toString().trim().length === 0) removeTriggerBtn();
-  }
-});
-
-// Fallback: selectionchange fires even when mouseup is swallowed by the page.
-// Debounced — we wait for the selection to stabilise after mouse release.
-let _selChangeTo = null;
-document.addEventListener('selectionchange', () => {
-  clearTimeout(_selChangeTo);
-  _selChangeTo = setTimeout(() => {
-    // Only act if mouse is not currently held down (avoid mid-drag flicker)
-    if (_mouseIsDown) return;
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.toString().trim().length === 0) {
-      // Selection was cleared — hide trigger
-      removeTriggerBtn();
-      return;
-    }
-    tryShowFromSelection();
-  }, 120);
-});
-
-// Track mouse button state for the selectionchange guard.
-// Use capture so we see events even when the page calls stopPropagation.
-let _mouseIsDown = false;
-document.addEventListener('mousedown', () => { _mouseIsDown = true; }, { capture: true });
-document.addEventListener('mouseup',   () => { _mouseIsDown = false; }, { capture: true });
-
-// Close trigger/panel when clicking outside our UI elements
-document.addEventListener('mousedown', (e) => {
-  if (!triggerBtn && !panelEl) return;
-  const path = e.composedPath();
-  const onTrigger   = triggerBtn && path.includes(triggerBtn);
-  const onPanel     = panelEl    && path.includes(panelEl);
-  const onHoverPopup = e.target.closest && e.target.closest('.ctx-explain-hover-popup');
-  if (!onTrigger && !onPanel && !onHoverPopup) {
+function updateSelection() {
+  if (pointerDown) return;
+  const selected = ctxSelection.read(document, openRoots);
+  if (!selected) {
+    lastBoundaries = null;
     removeTriggerBtn();
-    if (isPinned) return;
-    removePanel();
+    return;
   }
-});
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { removeTriggerBtn(); removePanel(); }
-});
+  const { range } = selected;
+  const boundaries = { start: range.startContainer, end: range.endContainer,
+    startOffset: range.startOffset, endOffset: range.endOffset };
+  if (sameBoundaries(boundaries, lastBoundaries)) return;
 
-// Redraw scrollbar markers on scroll (debounced)
-let scrollRedrawTO = null;
+  const bounds = ctxFrame.viewport();
+  const rect = Array.from(range.getClientRects()).reverse().find(box =>
+    box.width > 0 && box.height > 0 && box.right > bounds.left && box.left < bounds.right &&
+    box.bottom > bounds.top && box.top < bounds.bottom);
+  if (!rect) { removeTriggerBtn(); return; }
+
+  lastBoundaries = boundaries;
+  const snapshot = { ...ctxSelection.extract(selected, ctxFrame.source()), boundaries };
+  const x = Math.max(bounds.left + 2, Math.min(rect.right + 4, bounds.right - 102));
+  const y = Math.max(bounds.top + 2, Math.min(rect.top + (rect.height - 28) / 2, bounds.bottom - 32));
+  selectionAt = performance.timeOrigin + performance.now();
+  chrome.runtime.sendMessage({ type: 'CTX_SELECTION', token: selectionToken, at: selectionAt }).catch(() => {});
+  showTriggerBtn(x, y, snapshot);
+}
+
+function isExtensionUI(event) {
+  return event.composedPath().some(el => el === panelRoot || el === triggerBtn ||
+    el.matches?.('.ctx-explain-hover-popup, .ctx-explain-lightbox'));
+}
+
+if (ctxFrame.isFoliate()) {
+  window.addEventListener('click', event => {
+    const target = event.composedPath()[0];
+    if (!readerControls.has(target?.getRootNode?.())) return;
+
+    // BookOrbit handles clicks in document capture. Deliver the click within our
+    // shadow tree so it activates the control without reaching the reader.
+    event.stopImmediatePropagation();
+    event.preventDefault();
+    target.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: false,
+      view: window, detail: event.detail, button: event.button, buttons: event.buttons,
+      clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY,
+      ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey
+    }));
+  }, capture);
+}
+
+document.addEventListener('pointerdown', event => {
+  if (isExtensionUI(event)) return;
+  clearTimeout(selectionTimer);
+  pointerDown = true;
+  openRoots = [...new Set(event.composedPath().map(node => node.getRootNode?.())
+    .filter(root => root?.mode === 'open'))];
+  lastBoundaries = null;
+  removeTriggerBtn();
+  if (!isPinned && panelRoot) removePanel();
+}, capture);
+
+// Window capture runs before document-level reader handlers can consume the event.
+window.addEventListener('pointerup', event => {
+  pointerDown = false;
+  if (!isExtensionUI(event)) {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(updateSelection, 0);
+  }
+}, capture);
+window.addEventListener('pointercancel', () => { pointerDown = false; }, capture);
+window.addEventListener('blur', () => { pointerDown = false; }, capture);
+
+document.addEventListener('selectionchange', () => {
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(updateSelection, 120);
+}, capture);
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') { removeTriggerBtn(); forceClosePanel(); }
+}, capture);
+
 window.addEventListener('scroll', () => {
   clearTimeout(scrollRedrawTO);
   scrollRedrawTO = setTimeout(redrawScrollbarMarkers, 80);
-}, { passive: true });
+}, { passive: true, signal: documentEvents.signal });
+
+window.addEventListener('pagehide', event => {
+  clearTimeout(selectionTimer);
+  clearTimeout(scrollRedrawTO);
+  lastBoundaries = null;
+  openRoots = [];
+  removeTriggerBtn();
+  forceClosePanel();
+  if (!event.persisted) {
+    documentEvents.abort();
+    chrome.storage.onChanged.removeListener(onStorageChanged);
+    chrome.runtime.onMessage.removeListener(onExtensionMessage);
+  }
+}, { signal: documentEvents.signal });
 
 // ─── Persistent annotations: restore on page load ────────────────────────────
 
-function restoreAnnotations() {
-  const pageUrl = location.href;
-  chrome.storage.local.get(['ctxHistory'], (data) => {
-    const hist = data.ctxHistory || [];
-    // Only entries from this exact URL
-    const pageEntries = hist.filter(e => e.url === pageUrl && e.term);
-    if (pageEntries.length === 0) return;
-
-    // Wait for body to be populated (DOMContentLoaded may already have fired)
-    const doRestore = () => {
-      for (const entry of pageEntries) {
-        tryRestoreEntry(entry);
+async function restoreAnnotations() {
+  const source = ctxFrame.source();
+  const url = ctxFrame.stableUrl(location.href);
+  if (!url || source.sourceType === 'epub') return;
+  try {
+    const { ctxHistory = [] } = await chrome.storage.local.get('ctxHistory');
+    const candidates = ctxHistory.filter(entry => entry.term && (ctxFrame.inFrame ?
+      entry.sourceType === 'iframe' && entry.frameUrl === url : entry.url === url && !entry.frameUrl &&
+      (!entry.sourceType || entry.sourceType === 'web')));
+    if (!candidates.length) return;
+    const { sourceUrl } = await ctxFrame.resolveSource(source);
+    setTimeout(() => {
+      if (documentEvents.signal.aborted || location.href !== url) return;
+      for (const entry of candidates) {
+        if (entry.url === sourceUrl) tryRestoreEntry(entry);
       }
-      // Redraw scrollbar after all annotations placed
-      setTimeout(redrawScrollbarMarkers, 300);
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', doRestore, { once: true });
-    } else {
-      // Small delay to let SPA frameworks render content
-      setTimeout(doRestore, 400);
-    }
-  });
+      redrawScrollbarMarkers();
+    }, 400);
+  } catch { /* The extension context may have been reloaded. */ }
 }
 
 function tryRestoreEntry(entry) {
@@ -2123,7 +2106,8 @@ function tryRestoreEntry(entry) {
   if (!term || term.length < 2) return;
 
   // Find the text node in the document that matches term + context
-  const range = findTextInDocument(term, entry.contextBefore || '', entry.contextAfter || '');
+  const range = entry.sourceType ? ctxSelection.findQuote(document.body, { ...entry, selectedText: term }, 160000) :
+    findTextInDocument(term, entry.contextBefore || '', entry.contextAfter || '');
   if (range) {
     annotateRange(range, contextKey, entry);
   }
@@ -2264,55 +2248,51 @@ function wordOverlap(a, b) {
 // Kick off on script load
 restoreAnnotations();
 
-// ─── Listen for theme changes from popup ─────────────────────────────────────
-try {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'sync' || !changes.theme) return;
-    const newTheme = changes.theme.newValue || 'system';
-    _cachedTheme = newTheme;
-    if (panelRoot) {
-      applyThemeToPanel(panelRoot, newTheme);
+function onStorageChanged(changes, area) {
+  if (area === 'local' && changes.ctxHistory && pageAnnotations.size) {
+    const entries = new Map((changes.ctxHistory.newValue || []).map(entry => [entry.id, entry]));
+    for (const [key, annotation] of pageAnnotations) {
+      const entry = entries.get(annotation.entry.id);
+      if (entry) annotation.entry = entry;
+      else removeAnnotation(key);
     }
-    // Re-apply colors to trigger buttons if currently visible
-    if (triggerBtn) {
-      const hbc = getHostButtonColors();
-      triggerBtn.querySelectorAll('button').forEach(btn => {
-        btn.style.background = hbc.bg;
-        btn.style.border = `1.5px solid ${hbc.accentBorder}`;
-        btn.style.color = btn.classList.contains('ctx-ask-btn') ? hbc.askColor : hbc.accentColor;
-      });
-    }
-  });
-} catch (e) { /* extension context invalidated */ }
+  }
+  if (area === 'sync' && changes.responseLang) {
+    panelLanguage = changes.responseLang.newValue || 'English';
+    localizePanel();
+  }
+  if (area !== 'sync' || !changes.theme) return;
+  _cachedTheme = changes.theme.newValue || 'system';
+  if (panelRoot) applyThemeToPanel(panelRoot, _cachedTheme);
+  if (triggerBtn?.shadowRoot) {
+    const colors = getHostButtonColors();
+    triggerBtn.shadowRoot.querySelectorAll('button').forEach(btn => {
+      btn.style.background = colors.bg;
+      btn.style.border = `1.5px solid ${colors.accentBorder}`;
+      btn.style.color = btn.classList.contains('ctx-ask-btn') ? colors.askColor : colors.accentColor;
+    });
+  }
+}
 
-// ─── Image module-level state ─────────────────────────────────────────────────
 let _imageUrl = null;
 let _imageSrcUrl = null;
 let _visionCfg = null;
 
-// ─── Image Context Menu Handler ───────────────────────────────────────────────
-if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === 'DELETE_ANNOTATION') {
-      // Remove amber underline for a deleted history entry
-      const { term, contextBefore, contextAfter } = msg;
-      const contextKey = makeContextKey(term, contextBefore || '', contextAfter || '');
-      removeAnnotation(contextKey);
-      return;
-    }
-    if (msg.type !== 'IMAGE_CONTEXT_MENU') return;
-
-    const action = msg.action; // 'explain-image' | 'ask-image'
-    const mode = action === 'explain-image' ? 'image-explain' : 'image-ask';
-
+function onExtensionMessage(msg) {
+  if (msg.type === 'CTX_SELECTION_CHANGED' && msg.token !== selectionToken && msg.at >= selectionAt) {
+    clearTimeout(selectionTimer);
+    removeTriggerBtn();
+    if (!isPinned && panelRoot) removePanel();
+  } else if (msg.type === 'IMAGE_CONTEXT_MENU') {
     if (msg.error || !msg.srcUrl) {
       showImageError(msg.error || 'Could not determine image URL.');
-      return;
+    } else {
+      handleImageContextMenu(msg.srcUrl, msg.action === 'explain-image' ? 'image-explain' : 'image-ask');
     }
-
-    handleImageContextMenu(msg.srcUrl, mode);
-  });
+  }
 }
+chrome.storage.onChanged.addListener(onStorageChanged);
+chrome.runtime.onMessage.addListener(onExtensionMessage);
 
 function validateVisionConfig(cfg) {
   if (!cfg.visionEnabled) return 'Image analysis is disabled. Please enable it in the extension Settings.';
@@ -2351,7 +2331,7 @@ async function handleImageContextMenu(srcUrl, mode) {
 function showImageError(message) {
   forceClosePanel();
   if (!panelRoot) {
-    panelRoot = document.createElement('div');
+    panelRoot = createElement('div');
     Object.assign(panelRoot.style, {
       position: 'fixed', zIndex: '2147483647',
       top: '80px', right: '20px',
@@ -2359,9 +2339,10 @@ function showImageError(message) {
     document.body.appendChild(panelRoot);
   }
   shadowRoot = panelRoot.attachShadow({ mode: 'open' });
+  isolateReaderControls(shadowRoot);
   setupKeyboardIsolation(shadowRoot);
 
-  const style = document.createElement('style');
+  const style = createElement('style');
   style.textContent = getThemeVarsCSS() + `
     .err-panel {
       font-family: -apple-system, sans-serif;
@@ -2374,9 +2355,9 @@ function showImageError(message) {
     .err-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; padding: 0; flex-shrink: 0; }
     .err-close:hover { color: var(--text-primary); }
   `;
-  const div = document.createElement('div');
+  const div = createElement('div');
   div.className = 'err-panel';
-  div.innerHTML = `<span>⚠ ${message}</span><button class="err-close" title="Close">×</button>`;
+  setMarkup(div, `<span>⚠ ${message}</span><button class="err-close" title="Close">×</button>`);
   shadowRoot.appendChild(style);
   shadowRoot.appendChild(div);
   applyThemeToPanel(panelRoot, 'system');
@@ -2407,9 +2388,9 @@ async function showImagePanel(srcUrl, mode, visionCfg) {
   // Replace term-block with image thumbnail
   const termBlock = panelEl.querySelector('.term-block');
   if (termBlock) {
-    termBlock.innerHTML = '';
+    termBlock.replaceChildren();
     termBlock.style.padding = '8px 14px';
-    const thumb = document.createElement('img');
+    const thumb = createElement('img');
     thumb.src = srcUrl;
     thumb.alt = 'Referenced image';
     Object.assign(thumb.style, {
@@ -2440,22 +2421,11 @@ async function showImagePanel(srcUrl, mode, visionCfg) {
     // Ask mode
     if (footerStatus) { footerStatus.textContent = ''; footerStatus.className = 'footer-status'; }
     const convBody = panelEl.querySelector('.conversation-body');
-    if (convBody) convBody.innerHTML = '';
-    const sendBtn = panelEl.querySelector('.followup-send');
+    convBody?.replaceChildren();
     const textarea = panelEl.querySelector('.followup-input');
     if (textarea) textarea.placeholder = 'Ask something about this image…';
     if (followupArea) followupArea.classList.add('visible');
-    if (sendBtn) {
-      sendBtn.disabled = false;
-      sendBtn.onclick = () => sendImageFollowup();
-    }
-    if (textarea) {
-      textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); sendImageFollowup(); }
-        // Ctrl+Enter or Shift+Enter = newline (default behavior)
-      });
-      setTimeout(() => textarea.focus(), 100);
-    }
+    if (textarea) setTimeout(() => textarea.isConnected && textarea.focus(), 100);
   }
 }
 
@@ -2476,7 +2446,7 @@ async function getImageData(srcUrl) {
           const scale = img.naturalWidth > 1024 ? 1024 / img.naturalWidth : 1;
           const w = Math.round((img.naturalWidth || 400) * scale);
           const h = Math.round((img.naturalHeight || 200) * scale);
-          const canvas = document.createElement('canvas');
+          const canvas = createElement('canvas');
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
@@ -2511,12 +2481,16 @@ async function runImageFetch(userQuestion) {
   const convBody = panelEl?.querySelector('.conversation-body');
   const footerStatus = panelEl?.querySelector('.footer-status');
   const sendBtn = panelEl?.querySelector('.followup-send');
+  const controller = new AbortController();
+  currentAbortController = controller;
+  const imageSource = _imageSrcUrl;
+  const sourceMetadata = ctxFrame.resolveSource();
   const copyBtnEl = panelEl?.querySelector('.copy-btn');
   const recapBtnEl = panelEl?.querySelector('.recap-btn');
 
-  const msgBlock = document.createElement('div');
+  const msgBlock = createElement('div');
   msgBlock.className = 'response-block';
-  const streamEl = document.createElement('div');
+  const streamEl = createElement('div');
   streamEl.className = 'streaming-text';
   streamEl.style.cssText = 'white-space:pre-wrap;word-break:break-word;';
   msgBlock.appendChild(streamEl);
@@ -2525,12 +2499,13 @@ async function runImageFetch(userQuestion) {
   if (footerStatus) { footerStatus.textContent = 'Analyzing…'; footerStatus.className = 'footer-status streaming'; }
   if (sendBtn) sendBtn.disabled = true;
   if (copyBtnEl) copyBtnEl.disabled = true;
-    if (recapBtnEl) recapBtnEl.disabled = true;
+  if (recapBtnEl) recapBtnEl.disabled = true;
 
   try {
-    const imgData = await getImageData(_imageSrcUrl);
+    const imgData = await getImageData(imageSource);
 
     await ctxPromptsReady;
+    controller.signal.throwIfAborted();
     const prompt = userQuestion || ctxPrompt('imageExplain', panelLanguage);
 
     const imageContent = { type: 'image_url', image_url: { url: imgData.url } };
@@ -2546,9 +2521,6 @@ async function runImageFetch(userQuestion) {
       conversationMessages.push({ role: 'assistant', content: accumulatedText });
       conversationMessages.push(userMessage);
     }
-
-    const controller = new AbortController();
-    currentAbortController = controller;
 
     // Read responseLang for image analysis
     const { responseLang: imgLang = 'auto' } = await chrome.storage.sync.get('responseLang').catch(() => ({}));
@@ -2609,7 +2581,7 @@ async function runImageFetch(userQuestion) {
     isStreaming = false;
     if (streamEl && msgBlock.contains(streamEl)) {
       streamEl.remove();
-      msgBlock.innerHTML = renderMarkdown(accumulatedText);
+      setMarkup(msgBlock, renderMarkdown(accumulatedText));
       msgBlock.dataset.md = accumulatedText;
       renderMermaidBlocks(msgBlock);
     }
@@ -2618,36 +2590,34 @@ async function runImageFetch(userQuestion) {
     if (recapBtnEl) recapBtnEl.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     if (followupArea) followupArea.classList.add('visible');
-    if (followupInput) setTimeout(() => followupInput.focus(), 50);
+    const input = followupInput;
+    if (input) setTimeout(() => input.isConnected && input.focus(), 50);
 
     // Save to history
+    const answer = accumulatedText;
+    const source = await sourceMetadata;
     const histEntry = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2,8),
       ts: Date.now(),
-      url: window.location.href,
-      pageTitle: document.title,
+      url: source.sourceUrl,
+      pageTitle: source.documentTitle,
       term: 'Image',
       contextBefore: '',
       contextAfter: '',
-      explanation: accumulatedText,
+      explanation: answer,
       followUps: [],
       mode: 'image',
-      imageUrl: _imageSrcUrl
+      imageUrl: imageSource
     };
-    try {
-      const { ctxHistory = [] } = await chrome.storage.local.get('ctxHistory');
-      ctxHistory.unshift(histEntry);
-      if (ctxHistory.length > 2000) ctxHistory.length = 2000;
-      await chrome.storage.local.set({ ctxHistory });
-    } catch {}
-
-    currentHistoryId = histEntry.id;
+    if (await writeHistory('add', { entry: histEntry }) && msgBlock.isConnected) {
+      currentHistoryId = histEntry.id;
+    }
 
   } catch (err) {
+    if (controller.signal.aborted || err.name === 'AbortError') return;
     isStreaming = false;
-    if (err.name === 'AbortError') return;
     if (streamEl && msgBlock.contains(streamEl)) streamEl.remove();
-    const errDiv = document.createElement('div');
+    const errDiv = createElement('div');
     errDiv.className = 'error-msg';
     errDiv.textContent = '⚠ ' + (err.message || 'Request failed');
     msgBlock.appendChild(errDiv);
@@ -2665,7 +2635,7 @@ function sendImageFollowup() {
 
   const convBody = panelEl?.querySelector('.conversation-body');
   if (convBody) {
-    const qBlock = document.createElement('div');
+    const qBlock = createElement('div');
     qBlock.className = 'question-bubble';
     qBlock.textContent = question;
     convBody.appendChild(qBlock);
@@ -2676,14 +2646,15 @@ function sendImageFollowup() {
 }
 
 function showLightbox(imgUrl) {
-  const overlay = document.createElement('div');
+  const overlay = createElement('div');
+  overlay.className = 'ctx-explain-lightbox';
   Object.assign(overlay.style, {
     position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
     background: 'rgba(0,0,0,0.85)', zIndex: '2147483647',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'zoom-out'
   });
-  const img = document.createElement('img');
+  const img = createElement('img');
   img.src = imgUrl;
   Object.assign(img.style, {
     maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain',
@@ -2707,6 +2678,9 @@ function showLightbox(imgUrl) {
   const escHandler = (e) => {
     if (e.key === 'Escape') closeLightbox();
   };
-  document.addEventListener('keydown', escHandler);
+  document.addEventListener('keydown', escHandler, { signal: panelEvents.signal });
+  panelEvents.signal.addEventListener('abort', () => overlay.remove(), { once: true });
   document.body.appendChild(overlay);
 }
+
+})();

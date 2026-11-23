@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Context Explain",
-  "version": "2.2.3",
+  "version": "2.3.1",
   "description": "Understand anything as you read: context-aware AI explanations, translations & follow-up Q&A without leaving the page. BYO API key.",
   "permissions": [
     "storage",
@@ -27,10 +27,13 @@
       "js": [
         "lib/marked.min.js",
         "lib/katex.min.js",
-        "lib/mermaid.min.js",
         "lib/prompts.js",
+        "selection-context.js",
+        "frame-context.js",
         "content.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_end"
     }
   ],

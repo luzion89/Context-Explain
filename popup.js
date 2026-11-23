@@ -319,6 +319,7 @@ visionUseTextEl.addEventListener('change', function() {
 
 // ─── Settings: Load ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('.footer-version').textContent = 'v' + chrome.runtime.getManifest().version;
   chrome.storage.sync.get(
     ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme','translateLang',
      'visionEnabled','visionApiEndpoint','visionApiKey','visionApiModel','visionUseTextConfig'],
@@ -496,25 +497,21 @@ function renderHistList(items) {
   });
 }
 
-function deleteHistoryEntry(id) {
-  const entry = allHistory.find(e => e.id === id);
-  allHistory = allHistory.filter(e => e.id !== id);
-  chrome.storage.local.set({ ctxHistory: allHistory }, () => {
+async function changeHistory(action, id) {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'CTX_HISTORY', action, id });
+    if (!response?.ok) throw new Error('History update failed');
+    allHistory = response.history;
     renderHistList(allHistory);
-  });
-  // Notify content script on the active tab to remove the amber underline
-  if (entry) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'DELETE_ANNOTATION',
-          term: entry.term,
-          contextBefore: entry.contextBefore || '',
-          contextAfter: entry.contextAfter || '',
-        }).catch(() => {}); // ignore if content script not present
-      }
-    });
+  } catch {
+    const notice = document.createElement('div');
+    notice.textContent = 'History could not be updated. Please reopen the popup and try again.';
+    $('historyList').prepend(notice);
   }
+}
+
+function deleteHistoryEntry(id) {
+  return changeHistory('delete', id);
 }
 
 function showDetail(entry) {
@@ -631,10 +628,7 @@ $('btnExport').addEventListener('click', async () => {
 // ─── History: clear ───────────────────────────────────────────────────────────
 $('btnClear').addEventListener('click', () => {
   if (!confirm('Clear all explanation history? This cannot be undone.')) return;
-  chrome.storage.local.set({ ctxHistory: [] }, () => {
-    allHistory = [];
-    renderHistList([]);
-  });
+  changeHistory('clear');
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

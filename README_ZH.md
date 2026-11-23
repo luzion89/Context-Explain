@@ -6,7 +6,7 @@
 
 **在阅读的地方，获得 AI 的语境化解释。**
 
-[![Version](https://img.shields.io/badge/version-2.2.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.3.1-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -21,6 +21,21 @@
 
 ---
 
+## v2.3.1 更新
+
+- 修复 BookOrbit 把点击扩展操作按钮和面板当作正文翻页的问题。
+- 弹窗页脚从扩展清单读取实际安装版本。选区兼容性说明见下文。
+
+## v2.3.0 阅读器兼容性
+
+- 支持 Chrome 允许注入的普通或嵌套 iframe，以及具备匹配来源的 `about:blank`、`about:srcdoc` 和 `blob:` 文档。
+- 支持 Foliate EPUB、可访问的 PDF HTML 文本层，以及支持原生 DOM 选区的开放式 Shadow DOM。操作面板位于文字所属的 frame。
+- 根据实际选区位置提取前后文，每侧最多 500 字符。失效的选区会尝试从附近文字重新定位，无法定位时，面板会提示仅使用选中文字。
+- EPUB 和 PDF 文件阅读器的对话保存在历史中，来源链接指向阅读页面。普通网页及有稳定地址的 iframe 保留原文下划线和恢复。EPUB、PDF、临时 frame 和 Shadow DOM 不写入原文标注。EPUB 历史目前不保存 CFI。
+- Chrome 内置 PDF 查看器、禁止扩展注入的页面、封闭式 Shadow DOM，以及无 DOM 文本的 Canvas 正文或扫描件无法读取原文选区。已验证的微信读书章节使用 Canvas，拖选未产生原生文字选区。PDF 可改用有可选文本层的 HTML 查看器。
+
+测试范围、已确认的限制和实站操作步骤见[兼容性验证记录](docs/reader-compatibility.md)。
+
 ## v2.2.0–v2.2.3 更新
 
 - **模型发现**：文本和视觉设置可获取模型列表，支持 OpenAI、Anthropic（含分页）、DeepSeek 及提供兼容 `/models` 接口的第三方服务。成功后可搜索选择；无匹配或获取失败时仍可输入自定义模型 ID。
@@ -33,7 +48,7 @@
 
 ## ✦ 这是什么？
 
-在任意网页上**划选任意文字**，旁边出现三个小按钮，点击即可获得 AI 解释——AI 理解你选中内容的上下文：前后的句子、页面的话题、文本的语体。
+在支持的网页上**划选文字**，旁边出现三个小按钮，点击即可获得 AI 解释——AI 理解你选中内容的上下文：前后的句子、页面的话题、文本的语体。
 
 **右键单击任意图片**，即可让 AI 解释图片内容，或对图片提出具体问题。
 
