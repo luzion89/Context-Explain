@@ -1,3 +1,24 @@
+let panelLanguage = 'English';
+const PANEL_LANGUAGE = {"English": ["Copy", "Copied!", "Recap", "Thinking", "Network", "Ask a follow-up question…", "Thinking…", "Explaining…", "Done", "Retrying…", "Translating…", "Ask mode", "Searching…", "Retry", "Close", "Pin panel", "Unpin panel", "Send"], "Chinese (Simplified)": ["复制", "已复制", "总结", "深度思考", "联网搜索", "输入追问…", "正在思考…", "正在解释…", "完成", "正在重试…", "正在翻译…", "提问模式", "正在搜索…", "重试", "关闭", "固定面板", "取消固定", "发送"], "Japanese": ["コピー", "コピーしました", "要約", "思考", "ウェブ検索", "追加の質問を入力…", "思考中…", "説明中…", "完了", "再試行中…", "翻訳中…", "質問モード", "検索中…", "再試行", "閉じる", "固定", "固定を解除", "送信"], "Korean": ["복사", "복사됨", "요약", "깊이 생각", "웹 검색", "추가 질문 입력…", "생각 중…", "설명 중…", "완료", "다시 시도 중…", "번역 중…", "질문 모드", "검색 중…", "다시 시도", "닫기", "고정", "고정 해제", "보내기"]};
+function panelText(text) {
+ const index = PANEL_LANGUAGE.English.indexOf(text);
+ return index < 0 ? text : (PANEL_LANGUAGE[panelLanguage] || PANEL_LANGUAGE.English)[index];
+}
+function localizePanel() {
+ if (!panelEl) return;
+ const pairs = {'.copy-btn':'Copy','.recap-btn':'Recap','.ds-thinking':'Thinking','.ds-network':'Network'};
+ for (const [selector,key] of Object.entries(pairs)) {const el=panelEl.querySelector(selector);if(el)el.textContent=panelText(key);}
+ const input=panelEl.querySelector('.followup-input');if(input)input.placeholder=panelText('Ask a follow-up question…');
+ for(const el of panelEl.querySelectorAll('[title]')) {
+   const original=el.dataset.originalTitle || el.title; el.dataset.originalTitle=original;el.title=panelText(original);
+ }
+ for(const el of panelEl.querySelectorAll('.status-loading, .footer-status')) {
+   const original=el.textContent; if(PANEL_LANGUAGE.English.includes(original))el.textContent=panelText(original);
+ }
+}
+chrome.storage.sync.get(['responseLang'], data => { panelLanguage=data.responseLang || 'English';localizePanel(); });
+chrome.storage.onChanged.addListener((changes, area) => {if(area==='sync' && changes.responseLang){panelLanguage=changes.responseLang.newValue || 'English';localizePanel();}});
+
 /* ============================================================
    Context Explain — content.js
    ============================================================ */
@@ -378,7 +399,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
 
   /* ── Footer ── */
   .panel-footer { flex-shrink: 0; border-top: 1px solid var(--border); }
-  .footer-actions { display: flex; align-items: center; padding: 8px 14px; gap: 8px; border-bottom: 1px solid var(--border); }
+  .footer-actions { flex-wrap: wrap; display: flex; align-items: center; padding: 8px 14px; gap: 8px; border-bottom: 1px solid var(--border); }
   .copy-btn {
     padding: 4px 13px; border-radius: 20px;
     border: 1px solid var(--accent-border); background: transparent;
@@ -395,6 +416,9 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   }
   .recap-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
   .recap-btn:disabled { opacity: 0.3; cursor: default; }
+  .ds-toggle { padding: 4px 8px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11.5px; }
+  .ds-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+  .ds-toggle[hidden] { display: none; }
 
   .footer-status { font-size: 11px; color: var(--text-secondary); flex-grow: 1; text-align: right; letter-spacing: 0.02em; }
   .footer-status.done { color: var(--success); }
@@ -403,7 +427,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   .footer-status.stalled { color: var(--accent); }
 
   /* ── Follow-up ── */
-  .followup-area { display: none; padding: 9px 10px 10px; gap: 7px; align-items: flex-end; }
+  .followup-area { display: flex; padding: 9px 10px 10px; gap: 7px; align-items: flex-end; }
   .followup-area.visible { display: flex; }
   .followup-input {
     flex: 1; background: var(--input-bg);
@@ -469,6 +493,8 @@ let stallCheckInterval = null;
 let lastChunkTime = 0;
 let accumulatedText = '';
 let conversationMessages = [];
+let dsThinking = false, dsNetwork = false;
+let dsReasoning = '', dsToolCalls = null, dsAnnotations = null;
 let currentTerm = '';
 let currentContextBefore = '';
 let currentContextAfter = '';
@@ -1163,7 +1189,9 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       <div class="panel-footer">
         <div class="footer-actions">
           <button class="copy-btn" disabled>Copy</button>
-          <button class="recap-btn" disabled title="Summarize key points of this conversation">Recap</button>
+          <button class="recap-btn" disabled title="Recap">Recap</button>
+          <button class="ds-toggle ds-thinking" hidden aria-pressed="false" title="Thinking">Thinking</button>
+          <button class="ds-toggle ds-network" hidden aria-pressed="false" title="Network">Network</button>
           <span class="footer-status streaming">Explaining…</span>
         </div>
         <div class="followup-area">
@@ -1179,6 +1207,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     <div class="ctx-resize-s ctx-resize-handle"></div>
   `;
   shadowRoot.appendChild(panelEl);
+  localizePanel();
 
   // ── Apply theme ──
   // Use _cachedTheme (pre-loaded from storage at init) so the panel renders
@@ -1197,6 +1226,24 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   conversationBody = panelEl.querySelector('.conversation-body');
   copyBtn = panelEl.querySelector('.copy-btn');
   recapBtn = panelEl.querySelector('.recap-btn');
+  const thinkingToggle = panelEl.querySelector('.ds-thinking');
+  const networkToggle = panelEl.querySelector('.ds-network');
+  dsThinking = false; dsNetwork = false; dsReasoning = ''; dsToolCalls = null; dsAnnotations = null;
+  const panelForConfig = panelEl;
+  if (!_currentMode.startsWith('image')) {
+    loadConfig().then(cfg => {
+      if (panelEl !== panelForConfig || cfg.apiProvider !== 'deepseek') return;
+      thinkingToggle.hidden = false; networkToggle.hidden = false;
+    }).catch(() => {});
+  }
+  for (const [button, name] of [[thinkingToggle, 'thinking'], [networkToggle, 'network']]) {
+    button.addEventListener('click', () => {
+      if (isStreaming) return;
+      const enabled = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(enabled));
+      if (name === 'thinking') dsThinking = enabled; else dsNetwork = enabled;
+    });
+  }
   footerStatus = panelEl.querySelector('.footer-status');
   retryBtn = panelEl.querySelector('.retry-btn');
   followupArea = panelEl.querySelector('.followup-area');
@@ -1215,7 +1262,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   // Initial response block
   currentResponseBlock = document.createElement('div');
   currentResponseBlock.className = 'response-block';
-  currentResponseBlock.innerHTML = '<span class="status-loading">Thinking…</span>';
+  currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Thinking…') + '</span>';
   conversationBody.appendChild(currentResponseBlock);
 
   // ── Position: restore saved position or calculate from trigger ──
@@ -1257,13 +1304,13 @@ function buildPanel(btnX, btnY, contextKey, mode) {
     if (currentResponseBlock && conversationBody.contains(currentResponseBlock)) currentResponseBlock.remove();
     currentResponseBlock = document.createElement('div');
     currentResponseBlock.className = 'response-block';
-    currentResponseBlock.innerHTML = '<span class="status-loading">Retrying…</span>';
+    currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Retrying…') + '</span>';
     conversationBody.appendChild(currentResponseBlock);
     _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
-    if (footerStatus) { footerStatus.textContent = 'Retrying…'; footerStatus.className = 'footer-status streaming'; }
+    if (footerStatus) { footerStatus.textContent = panelText('Retrying…'); footerStatus.className = 'footer-status streaming'; }
     if (copyBtn) copyBtn.disabled = true;
   if (recapBtn) recapBtn.disabled = true;
-    followupArea.classList.remove('visible');
+    followupArea.classList.add('visible');
     accumulatedText = '';
     startStream();
   });
@@ -1294,14 +1341,14 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       Object.assign(ta.style, { position:'fixed', opacity:'0' });
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     });
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy'; }, 1800);
+    copyBtn.textContent = panelText('Copied!');
+    setTimeout(() => { if (copyBtn) copyBtn.textContent = panelText('Copy'); }, 1800);
   });
 
   // Recap
   recapBtn.addEventListener('click', () => {
     if (isStreaming) return;
-    const recapPrompt = 'Please recap the key points of our conversation so far. Summarize: (1) the core concept or question we explored, (2) the most important insights or answers, (3) any follow-up questions I asked and what we clarified. Be concise and use bullet points where helpful.';
+    const recapPrompt = ctxPrompt('recap', panelLanguage, {responseLang: ctxPromptLanguage(panelLanguage)});
     if (followupInput) {
       followupInput.value = recapPrompt;
       sendFollowup();
@@ -1352,11 +1399,11 @@ function showPanel(ctx, btnX, btnY, mode) {
     // Ask mode: skip auto-explain, show input immediately, hide loading block
     if (currentResponseBlock) currentResponseBlock.remove();
     currentResponseBlock = null;
-    if (footerStatus) { footerStatus.textContent = 'Ask mode'; footerStatus.className = 'footer-status done'; }
+    if (footerStatus) { footerStatus.textContent = panelText('Ask mode'); footerStatus.className = 'footer-status done'; }
     if (followupArea) followupArea.classList.add('visible');
     // Pre-fill placeholder to indicate context
     if (followupInput) {
-      followupInput.placeholder = `Ask about "${ctx.selectedText.slice(0, 15)}${ctx.selectedText.length > 15 ? '…' : ''}"`;
+      followupInput.placeholder = panelText('Ask a follow-up question…');
       followupInput.focus();
     }
     // Prime the conversation with a silent system context message for follow-ups
@@ -1368,7 +1415,7 @@ function showPanel(ctx, btnX, btnY, mode) {
     _askModeFirstMessage = true;
   } else if (mode === 'translate') {
     // Translate mode: auto-stream like explain, but different prompt + status
-    if (footerStatus) { footerStatus.textContent = 'Translating…'; footerStatus.className = 'footer-status streaming'; }
+    if (footerStatus) { footerStatus.textContent = panelText('Translating…'); footerStatus.className = 'footer-status streaming'; }
     _currentMode = 'translate';
     const userContent = buildTranslatePromptPlaceholder(ctx);
     conversationMessages = [{ role: 'user', content: userContent }];
@@ -1390,7 +1437,7 @@ let _askModeQuestion = null; // stores the user's question for ask-mode first tu
 let _currentMode = 'explain'; // 'explain' | 'translate'
 
 function buildInitialPrompt(ctx) {
-  return `Selected text: "${ctx.selectedText}"\n\nSurrounding context:\n${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}\n\nPlease explain what "${ctx.selectedText}" means in this context. If it's a technical term, acronym, or concept, explain it clearly. Be focused and practical.`;
+  return ctxPrompt('explain', panelLanguage, {...ctx});
 }
 
 // Placeholder: the real prompt is built in runFetch after loading translateLang from storage.
@@ -1403,33 +1450,11 @@ function buildTranslatePromptPlaceholder(ctx) {
 }
 
 function buildTranslatePrompt(ctx, targetLang) {
-  const { selectedText, contextBefore, contextAfter } = ctx;
-  return `I am reading a webpage and selected the following text:
-
-"${selectedText}"
-
-Surrounding context:
-${contextBefore}[${selectedText}]${contextAfter}
-
-Target language: ${targetLang}
-
-Your task: translate and briefly explain the selected text in ${targetLang}. Keep the response short — no lengthy essays.
-
-Format your response as follows:
-1. **Translation** (or **Meaning** if it's already in ${targetLang} or has no clean equivalent): provide the natural translation or meaning in ${targetLang}.
-2. **Context**: 1–2 sentences explaining what this word/phrase means in the specific context above — its role, connotation, tone, or why this translation fits. Do not repeat the translation verbatim; add value.
-
-Rules:
-- If the text is a single common word with an obvious translation, keep the Context note to one short sentence.
-- If the text is idiomatic, cultural, or jargon-heavy, prioritize the explanation over a literal translation.
-- If the text is already in ${targetLang}, skip the Translation line and go straight to explaining its meaning and nuance in context.
-- For multi-sentence passages, translate naturally then briefly note any key nuance.
-- Never output preamble like "Here is the translation:" or "Sure!".
-- Write entirely in ${targetLang}.`;
+  return ctxPrompt('translate', panelLanguage, {...ctx, targetLang});
 }
 
 function buildAskPrompt(ctx, question) {
-  return `I'm reading a page and selected this text: "${ctx.selectedText}"\n\nContext:\n${ctx.contextBefore}[${ctx.selectedText}]${ctx.contextAfter}\n\nMy question: ${question}`;
+  return ctxPrompt('ask', panelLanguage, {...ctx, question});
 }
 
 // ─── Resize handles ───────────────────────────────────────────────────────────
@@ -1592,7 +1617,11 @@ function sendFollowup() {
     bubble.textContent = question;
     conversationBody.appendChild(bubble);
   } else {
-    conversationMessages.push({ role: 'assistant', content: accumulatedText });
+    const previous = { role: 'assistant', content: accumulatedText };
+    if (dsReasoning) previous.reasoning_content = dsReasoning;
+    if (dsToolCalls) previous.server_tool_calls = dsToolCalls;
+    if (dsAnnotations) previous.annotations = dsAnnotations;
+    conversationMessages.push(previous);
     conversationMessages.push({ role: 'user', content: question });
 
     const bubble = document.createElement('div');
@@ -1603,14 +1632,14 @@ function sendFollowup() {
 
   currentResponseBlock = document.createElement('div');
   currentResponseBlock.className = 'response-block';
-  currentResponseBlock.innerHTML = '<span class="status-loading">Thinking…</span>';
+  currentResponseBlock.innerHTML = '<span class="status-loading">' + panelText('Thinking…') + '</span>';
   conversationBody.appendChild(currentResponseBlock);
 
   _userScrolled = false; conversationBody.scrollTop = conversationBody.scrollHeight;
-  if (footerStatus) { footerStatus.textContent = 'Explaining…'; footerStatus.className = 'footer-status streaming'; }
+  if (footerStatus) { footerStatus.textContent = panelText('Explaining…'); footerStatus.className = 'footer-status streaming'; }
   if (copyBtn) copyBtn.disabled = true;
   if (recapBtn) recapBtn.disabled = true;
-  followupArea.classList.remove('visible');
+  followupArea.classList.add('visible');
   if (retryBtn) retryBtn.classList.remove('visible');
   accumulatedText = '';
 
@@ -1619,13 +1648,13 @@ function sendFollowup() {
 
 // ─── Streaming — robust against disconnects ───────────────────────────────────
 const STALL_TIMEOUT = 15000;
-const HARD_TIMEOUT  = 60000;
+const HARD_TIMEOUT  = 180000;
 
 // ─── Direct fetch helpers (all in content script — no service worker needed) ──
 
 function defaultModel(provider) {
   if (provider === 'anthropic') return 'claude-3-5-haiku-20241022';
-  if (provider === 'deepseek')  return 'deepseek-chat';
+  if (provider === 'deepseek')  return 'deepseek-flash';
   return 'gpt-4o-mini';
 }
 
@@ -1680,6 +1709,7 @@ function startStream() {
 }
 
 async function runFetch() {
+  await ctxPromptsReady;
   const config = await loadConfig();
   const provider   = config.apiProvider || 'openai';
   const apiKey     = config.apiKey || '';
@@ -1693,6 +1723,11 @@ async function runFetch() {
     return;
   }
 
+  if (provider === 'deepseek' && dsNetwork && model !== 'deepseek-flash') {
+    handleStreamFailure('Network requires the DeepSeek deepseek-flash model. Change the model in settings.');
+    return;
+  }
+
   let systemPrompt;
   if (_currentMode === 'translate') {
     // Replace placeholder with real translate prompt now that we have translateLang
@@ -1703,10 +1738,10 @@ async function runFetch() {
       }];
       _pendingTranslateCtx = null;
     }
-    systemPrompt = `You are a precise translator and language expert. Follow the user's instructions exactly. Be concise.`;
+    systemPrompt = ctxPrompt('translateSystem', panelLanguage);
   } else {
     const langInstruction = lang === 'auto' ? 'the same language as the selected text' : lang;
-    systemPrompt = `You are a knowledgeable and concise expert explainer. The user has selected text from a webpage and wants to understand it better. Explain clearly and be appropriately detailed. Use markdown formatting when helpful (bold for key terms, code blocks for code, bullet points for lists). Respond in ${langInstruction}.`;
+    systemPrompt = ctxPrompt('textSystem', panelLanguage, {responseLang: langInstruction});
   }
 
   currentAbortController = new AbortController();
@@ -1731,7 +1766,8 @@ async function fetchOpenAI({ provider, apiKey, apiBaseUrl, model, systemPrompt, 
     body: JSON.stringify({
       model,
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
-      stream: true
+      stream: true,
+      ...(provider === 'deepseek' ? { thinking: {type: dsThinking ? 'enabled' : 'disabled'}, ...(dsNetwork ? {tools: [{type: 'deepseek_web_search'}]} : {}) } : {})
     }),
     signal
   });
@@ -1743,9 +1779,21 @@ async function fetchOpenAI({ provider, apiKey, apiBaseUrl, model, systemPrompt, 
     throw new Error(msg);
   }
 
+  dsReasoning = ''; dsToolCalls = null; dsAnnotations = null;
   await parseSSE(resp, signal, data => {
     if (data === '[DONE]') return null;
-    try { return JSON.parse(data)?.choices?.[0]?.delta?.content || null; } catch { return null; }
+    let chunk;
+    try { chunk = JSON.parse(data); } catch { return null; }
+    if (chunk.error) throw new Error(chunk.error.message || 'Streaming request failed');
+    const choice = chunk.choices?.[0];
+    const delta = choice?.delta || {};
+    if (provider === 'deepseek') {
+      if (delta.reasoning_content) { dsReasoning += delta.reasoning_content; lastChunkTime = Date.now(); if (footerStatus) footerStatus.textContent = panelText('Thinking…'); }
+      if (choice?.server_tool_event) { lastChunkTime = Date.now(); if (footerStatus) footerStatus.textContent = panelText('Searching…'); }
+      if (delta.server_tool_calls) dsToolCalls = delta.server_tool_calls;
+      if (delta.annotations) dsAnnotations = delta.annotations;
+    }
+    return delta.content || null;
   });
 }
 
@@ -1811,13 +1859,17 @@ async function parseSSE(resp, signal, extractor) {
       if (text && isStreaming) onChunk(text);
     }
   }
+  if (isStreaming && dsAnnotations && dsNetwork) {
+    const urls = [...new Map(dsAnnotations.map(a => a.url_citation).filter(c => c && /^https?:\/\//i.test(c.url || '')).map(c => [c.url, c])).values()];
+    if (urls.length) onChunk('\n\nSources:\n' + urls.map(c => '- [' + (c.title || c.url).replace(/[\[\]]/g, '') + '](' + c.url.replace(/[()\s]/g, encodeURIComponent) + ')').join('\n'));
+  }
   if (isStreaming) onDone();
 }
 
 function onChunk(text) {
   lastChunkTime = Date.now();
   if (footerStatus && footerStatus.className.includes('stalled')) {
-    footerStatus.textContent = 'Explaining…';
+    footerStatus.textContent = panelText('Explaining…');
     footerStatus.className = 'footer-status streaming';
   }
   appendChunk(text);
@@ -1927,7 +1979,7 @@ async function onDone() {
 
   if (copyBtn) copyBtn.disabled = false;
   if (recapBtn) recapBtn.disabled = false;
-  if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
+  if (footerStatus) { footerStatus.textContent = panelText('Done'); footerStatus.className = 'footer-status done'; }
   if (followupArea) followupArea.classList.add('visible');
   if (followupInput) setTimeout(() => followupInput.focus(), 50);
 }
@@ -2478,9 +2530,8 @@ async function runImageFetch(userQuestion) {
   try {
     const imgData = await getImageData(_imageSrcUrl);
 
-    const prompt = userQuestion
-      ? userQuestion
-      : 'Please explain what is shown in this image. Be clear and informative.';
+    await ctxPromptsReady;
+    const prompt = userQuestion || ctxPrompt('imageExplain', panelLanguage);
 
     const imageContent = { type: 'image_url', image_url: { url: imgData.url } };
 
@@ -2513,7 +2564,7 @@ async function runImageFetch(userQuestion) {
       body: JSON.stringify({
         model: _visionCfg.visionApiModel,
         messages: [
-          { role: 'system', content: `You are a helpful image analysis assistant. Be clear and informative.${langInstruction}` },
+          { role: 'system', content: ctxPrompt('imageSystem', panelLanguage, {responseLang: imgLang === 'auto' ? ctxPromptLanguage(panelLanguage) : imgLang}) },
           ...conversationMessages
         ],
         stream: true
@@ -2562,7 +2613,7 @@ async function runImageFetch(userQuestion) {
       msgBlock.dataset.md = accumulatedText;
       renderMermaidBlocks(msgBlock);
     }
-    if (footerStatus) { footerStatus.textContent = 'Done'; footerStatus.className = 'footer-status done'; }
+    if (footerStatus) { footerStatus.textContent = panelText('Done'); footerStatus.className = 'footer-status done'; }
     if (copyBtnEl) copyBtnEl.disabled = false;
     if (recapBtnEl) recapBtnEl.disabled = false;
     if (sendBtn) sendBtn.disabled = false;

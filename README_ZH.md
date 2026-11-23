@@ -6,7 +6,7 @@
 
 **在阅读的地方，获得 AI 的语境化解释。**
 
-[![Version](https://img.shields.io/badge/version-2.1.2-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -20,6 +20,16 @@
 </div>
 
 ---
+
+## v2.2.0–v2.2.3 更新
+
+- **模型发现**：文本和视觉设置可获取模型列表，支持 OpenAI、Anthropic（含分页）、DeepSeek 及提供兼容 `/models` 接口的第三方服务。成功后可搜索选择；无匹配或获取失败时仍可输入自定义模型 ID。
+- **DeepSeek 开关**：文字对话增加深度思考和联网搜索，作用于下一次请求。联网当前要求 `deepseek-flash`，模型按需搜索，可能产生额外费用。解释/翻译首次请求自动发起，开关可用于之后的追问；提问模式可在首次发送前设置。
+- **设置与面板优化**：获取按钮移到模型标题右侧；示例放入输入框；移除保存按钮上方分隔线；流式输出期间可提前输入追问，完成后发送。
+- **多语言**：英语、简体中文、日语、韩语的模型获取提示、连接提示、面板按钮和状态文案；模型获取成功提示随语言切换，Recap 使用当前界面语言。
+- **提示词管理**：新增独立标签页，展示并编辑文本解释、提问、翻译、总结、图片解释和相关系统指令共八个场景。按语言保存到本地，支持恢复默认和模板变量。切换语言前请先保存；修改用于新请求。
+
+注意：模型列表不保证全部模型均适配当前对话/视觉接口。联网搜索元数据仅在当前打开的会话中保留，历史重新打开时不会恢复完整搜索上下文。当前版本通过语法、模拟请求、提示词和历史逻辑检查，仍需实际 Chrome/API 验证。
 
 ## ✦ 这是什么？
 
@@ -139,7 +149,7 @@ v2 使用了一个最小化的 Service Worker，仅用于注册右键菜单（Ch
 | 🪟 **面板** | 可拖动、可调整大小（5 个句柄）、可固定 — 位置和尺寸均保存 |
 | 📌 **固定面板** | 与页面交互时保持面板不关闭 |
 | ↻ **重试** | 失败或不满意时重新运行上一次查询 |
-| 📚 **查询历史** | 全文搜索 · 导出 JSON · 单条删除 · 图片缩略图 |
+| 📚 **查询历史** | 全文搜索 · 导出 Markdown ZIP · 单条删除 · 图片缩略图 |
 | ⚡ **流式输出** | RAF 节流渲染，Markdown 一次性渲染 |
 | 💾 **本地存储** | `chrome.storage.local` + `unlimitedStorage`，最多 2000 条 |
 | 🌐 **界面本地化** | 设置界面支持 EN / 简体中文 / 日本語 / 한국어 |
@@ -195,6 +205,10 @@ git clone https://github.com/luzion89/Context-Explain.git
 | **使用文字 API 配置** | 从文字 API 标签页复制端点和密钥 |
 
 <figure><img src="assets/screenshots/vision-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>视觉 API 设置 — 为图片分析配置独立的视觉模型</em></figcaption></figure>
+
+模型输入框旁的「获取模型列表」支持 OpenAI、Anthropic、DeepSeek 及提供 OpenAI 兼容 `/models` 接口的自定义服务。获取成功后可从候选列表选择，失败时仍可手动输入模型 ID。视觉模型也可以使用独立端点获取列表；列表不保证每个模型都支持图片。
+
+使用 DeepSeek 文字 API 时，对话面板提供 Thinking 和 Network 开关，作用于下一次请求。Network 需要 `deepseek-flash`；搜索由模型按需决定，可能产生额外费用。解释和翻译模式会立即发起首次请求，可在之后的追问中使用开关；提问模式可在首次提交前设置。
 
 ### 行为设置
 
