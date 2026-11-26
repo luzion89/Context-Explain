@@ -1,3 +1,18 @@
+import { createChatGPT } from './siwc/client.js';
+
+const chatGPT = createChatGPT();
+const SIWC_COPY = {
+  English: ['Username', 'Authorize', 'Awaiting authorization…', 'Not connected', 'Authorize ChatGPT plan access to use text models.', 'Leave blank to use an available model', 'ChatGPT is authorized for text requests.', 'Disconnect'],
+  'Chinese (Simplified)': ['用户名', '认证授权', '等待授权…', '未连接', '授权使用 ChatGPT 套餐后即可调用文本模型。', '留空时自动使用可用模型', '已授权使用 ChatGPT 文本模型。', '断开连接'],
+  Japanese: ['ユーザー名', '認証・許可', '認証待ち…', '未接続', 'テキストモデルを使うには ChatGPT プランの利用を許可してください。', '空欄なら利用可能なモデルを選択', 'ChatGPT のテキスト利用を許可済みです。', '接続を解除'],
+  Korean: ['사용자 이름', '인증 및 승인', '승인 대기 중…', '연결되지 않음', '텍스트 모델을 사용하려면 ChatGPT 플랜 사용을 승인하세요.', '비워 두면 사용 가능한 모델을 선택', 'ChatGPT 텍스트 사용이 승인되었습니다.', '연결 해제'],
+};
+let siwcSession;
+let siwcActionPending = false;
+let siwcModel = '';
+let apiModelDraft = '';
+let displayedProvider;
+
 const SETTINGS_LOCALE = {
  'English': ['Get your key at ', 'Connected', 'Connection failed', 'Check the API endpoint, key, model and network.'],
  'Chinese (Simplified)': ['获取密钥：', '连接成功', '连接失败', '请检查 API 地址、密钥、模型和网络。'],
@@ -19,12 +34,15 @@ const MODEL_COPY = {
 function modelCopy() { return MODEL_COPY[currentModelLanguage] || MODEL_COPY.English; }
 function refreshModelLanguage() {
  const t = modelCopy();
+ const support = document.getElementById('support-link-label');
+ if (support) support.textContent = ({'Chinese (Simplified)':'请求支持 ↗','Japanese':'サポート ↗','Korean':'지원 요청 ↗'})[currentModelLanguage] || 'Get support ↗';
  for(const id of ['text-models-result','vision-models-result']) {const el=document.getElementById(id);if(el?.dataset.state==='success')el.textContent=t[3];}
- const hint=document.getElementById('keyHint'); const selected=document.getElementById('provider'); if(hint && selected) hint.textContent=settingsText(0)+(PROVIDER_DEFAULTS[selected.value]?.keyHint || '');
+ const hint=document.getElementById('keyHint'); const selected=document.getElementById('provider'); if(hint && selected && !usingSiwc()) hint.textContent=settingsText(0)+(PROVIDER_DEFAULTS[selected.value]?.keyHint || '');
  for (const prefix of ['text','vision']) { const b=document.getElementById('fetch-'+prefix+'-models'); if(b) b.textContent=t[0]; }
  const input=document.getElementById('apiModel'); const provider=document.getElementById('provider');
- if(input && provider) input.placeholder=t[6]+(PROVIDER_DEFAULTS[provider.value]?.placeholder || 'model-name');
+ if(input && provider && !usingSiwc()) input.placeholder=t[6]+(PROVIDER_DEFAULTS[provider.value]?.placeholder || 'model-name');
  const vision=document.getElementById('vision-model'); if(vision) vision.placeholder=t[6]+'gpt-4o / gemini-pro-vision';
+
 }
 const UI_STRINGS = {
   'English': {
@@ -134,7 +152,7 @@ function applyUILanguage(lang) {
     if (el) el.textContent = text;
   };
   setLabel('provider', s.labelProvider);
-  setLabel('apiKey', s.labelApiKey);
+  updateSiwcUI();
   setLabel('apiModel', s.labelModel);
   setLabel('apiBaseUrl', s.labelBaseUrl);
   setLabel('vision-endpoint', s.labelEndpoint);
@@ -196,6 +214,7 @@ function applyUILanguage(lang) {
 }
 
 const PROVIDER_DEFAULTS = {
+  'openai-siwc': { placeholder: '', keyHint: '' },
   openai:    { placeholder: 'gpt-4o-mini',                hint: 'e.g. gpt-4o, gpt-4o-mini',             keyHint: 'platform.openai.com' },
   anthropic: { placeholder: 'claude-3-5-haiku-20241022',  hint: 'e.g. claude-opus-4-5, claude-3-5-haiku',keyHint: 'console.anthropic.com' },
   deepseek:  { placeholder: 'deepseek-flash',             hint: 'e.g. deepseek-flash, deepseek-v4-pro', keyHint: 'platform.deepseek.com' },
@@ -263,17 +282,111 @@ document.querySelectorAll('.ai-tab-btn').forEach(btn => {
 });
 
 // ─── Settings: Provider UI ────────────────────────────────────────────────────
+function siwcCopy() {
+  return SIWC_COPY[currentModelLanguage] || SIWC_COPY.English;
+}
+
+function usingSiwc() {
+  return providerEl.value === 'openai-siwc';
+}
+
+function siwcAuthorized() {
+  return siwcSession?.status === 'connected' && siwcSession.sharing;
+}
+
+function updateSiwcUI() {
+  const enabled = usingSiwc();
+  const copy = siwcCopy();
+  const label = document.querySelector('label[for="apiKey"], label[for="siwc-username"]');
+  label.htmlFor = enabled ? 'siwc-username' : 'apiKey';
+  label.textContent = enabled ? copy[0] : (UI_STRINGS[currentModelLanguage] || UI_STRINGS.English).labelApiKey;
+  apiKeyEl.hidden = enabled;
+  const username = $('siwc-username');
+  username.hidden = !enabled;
+  username.value = siwcSession?.identity?.name || siwcSession?.identity?.email ||
+    siwcSession?.profileLabel || (siwcAuthorized() ? copy[6] : copy[3]);
+  toggleKeyEl.disabled = enabled && (siwcActionPending || siwcSession?.status === 'connecting');
+  toggleKeyEl.textContent = enabled
+    ? (toggleKeyEl.disabled ? copy[2] : copy[1])
+    : (apiKeyEl.type === 'password' ? 'show' : 'hide');
+  $('siwc-result').hidden = !enabled;
+  $('siwc-disconnect').textContent = copy[7];
+  $('siwc-disconnect').hidden = !enabled || siwcSession?.status !== 'connected';
+  $('siwc-disconnect').disabled = siwcActionPending;
+  visionUseTextEl.disabled = enabled;
+  if (enabled) {
+    if (visionUseTextEl.checked) {
+      visionUseTextEl.checked = false;
+      visionUseTextEl.dispatchEvent(new Event('change'));
+    }
+    keyHintEl.textContent = siwcAuthorized() ? copy[6] : copy[4];
+    apiModelEl.placeholder = copy[5];
+  }
+}
+
+chatGPT.subscribe(session => {
+  const accountChanged = siwcSession?.profileId !== session.profileId || siwcSession?.sharing !== session.sharing;
+  siwcSession = session;
+  if (usingSiwc() && accountChanged) clearTextModelResults();
+  updateSiwcUI();
+});
+
 function updateProviderUI(p) {
   const info = PROVIDER_DEFAULTS[p] || PROVIDER_DEFAULTS.custom;
   refreshModelLanguage();
   modelHintEl.textContent = "";
   keyHintEl.textContent = settingsText(0) + info.keyHint;
   fieldBaseUrl.style.display = p === 'custom' ? '' : 'none';
+  updateSiwcUI();
 }
 
-providerEl.addEventListener('change', () => updateProviderUI(providerEl.value));
+function clearTextModelResults() {
+  $('text-model-list').replaceChildren();
+  $('text-model-results').hidden = true;
+  const status = $('text-models-result');
+  status.dataset.state = '';
+  status.textContent = '';
+  apiModelEl.setAttribute('aria-expanded', 'false');
+  apiModelEl.removeAttribute('aria-activedescendant');
+}
+
+providerEl.addEventListener('change', () => {
+  clearTextModelResults();
+  $('test-text-result').textContent = '';
+  const wasSiwc = displayedProvider === 'openai-siwc';
+  if (wasSiwc !== usingSiwc()) {
+    if (wasSiwc) siwcModel = apiModelEl.value;
+    else apiModelDraft = apiModelEl.value;
+    apiModelEl.value = usingSiwc() ? siwcModel : apiModelDraft;
+  }
+  displayedProvider = providerEl.value;
+  updateProviderUI(displayedProvider);
+});
+
+async function runSiwcAction(action) {
+  siwcActionPending = true;
+  $('siwc-result').textContent = '';
+  updateSiwcUI();
+  try {
+    await action();
+  } catch (error) {
+    $('siwc-result').textContent = error.message;
+  } finally {
+    try { siwcSession = await chatGPT.getSession(); } catch {}
+    siwcActionPending = false;
+    updateSiwcUI();
+  }
+}
+
+$('siwc-disconnect').addEventListener('click', () => {
+  void runSiwcAction(() => chatGPT.disconnect());
+});
 
 toggleKeyEl.addEventListener('click', () => {
+  if (usingSiwc()) {
+    void runSiwcAction(() => chatGPT.signIn({ reconsent: !siwcAuthorized() && siwcSession?.status === 'connected' }));
+    return;
+  }
   const show = apiKeyEl.type === 'password';
   apiKeyEl.type = show ? 'text' : 'password';
   toggleKeyEl.textContent = show ? 'hide' : 'show';
@@ -321,13 +434,16 @@ visionUseTextEl.addEventListener('change', function() {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.footer-version').textContent = 'v' + chrome.runtime.getManifest().version;
   chrome.storage.sync.get(
-    ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','theme','translateLang',
+    ['apiProvider','apiKey','apiModel','siwcModel','apiBaseUrl','responseLang','theme','translateLang',
      'visionEnabled','visionApiEndpoint','visionApiKey','visionApiModel','visionUseTextConfig'],
     (data) => {
       const p = data.apiProvider || 'openai';
       providerEl.value = p;
       apiKeyEl.value = data.apiKey || '';
-      apiModelEl.value = data.apiModel || '';
+      displayedProvider = p;
+      apiModelDraft = data.apiModel || '';
+      siwcModel = data.siwcModel || '';
+      apiModelEl.value = usingSiwc() ? siwcModel : apiModelDraft;
       apiBaseUrlEl.value = data.apiBaseUrl || '';
       responseLangEl.value = data.responseLang || 'auto';
       const theme = data.theme || 'system';
@@ -342,12 +458,13 @@ document.addEventListener('DOMContentLoaded', () => {
       visionEndpointEl.value    = data.visionApiEndpoint || '';
       visionKeyEl.value         = data.visionApiKey || '';
       visionModelEl.value       = data.visionApiModel || '';
-      visionUseTextEl.checked   = data.visionUseTextConfig || false;
+      visionUseTextEl.checked   = !usingSiwc() && Boolean(data.visionUseTextConfig);
       updateVisionFieldsState();
-      if (data.visionUseTextConfig) {
+      if (visionUseTextEl.checked) {
         visionEndpointEl.disabled = true;
         visionKeyEl.disabled = true;
       }
+      providerEl.disabled = false;
     }
   );
 });
@@ -370,7 +487,7 @@ saveBtnEl.addEventListener('click', () => {
   const apiModel  = apiModelEl.value.trim();
   const apiBaseUrl = apiBaseUrlEl.value.trim();
 
-  if (!apiKey) {
+  if (!usingSiwc() && !apiKey) {
     apiKeyEl.classList.add('warning');
     showStatus('API key is required.', 'warn');
     apiKeyEl.focus();
@@ -389,7 +506,9 @@ saveBtnEl.addEventListener('click', () => {
   chrome.storage.sync.set({
     apiProvider: provider,
     apiKey,
-    apiModel: apiModel || PROVIDER_DEFAULTS[provider]?.placeholder || 'gpt-4o-mini',
+    ...(usingSiwc()
+      ? { siwcModel: apiModel }
+      : { apiModel: apiModel || PROVIDER_DEFAULTS[provider]?.placeholder || 'gpt-4o-mini' }),
     apiBaseUrl,
     responseLang: responseLangEl.value,
     theme: themeSelectEl.value,
@@ -786,8 +905,23 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
 
 // Wire up test buttons after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  $('test-text-api')?.addEventListener('click', () => {
+  $('test-text-api')?.addEventListener('click', async () => {
     const provider = providerEl.value;
+    if (usingSiwc()) {
+      const button = $('test-text-api');
+      const result = $('test-text-result');
+      button.disabled = true;
+      result.textContent = modelCopy()[1];
+      try {
+        await chatGPT.listModels();
+        if (usingSiwc()) result.textContent = settingsText(1);
+      } catch (error) {
+        if (usingSiwc()) result.textContent = settingsText(2) + ' · ' + error.message;
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
     let endpoint = apiBaseUrlEl.value.trim();
     if (!endpoint) {
       const defaults = { openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1' };
@@ -829,12 +963,14 @@ async function fetchModelList(vision) {
   const status = $(vision ? 'vision-models-result' : 'text-models-result');
   const list = $(vision ? 'vision-model-list' : 'text-model-list');
   const useText = !vision || visionUseTextEl.checked;
-  const provider = useText ? providerEl.value : 'custom';
-  const endpoint = (useText ? (provider === 'custom' ? apiBaseUrlEl.value : MODEL_ENDPOINTS[provider]) : visionEndpointEl.value).trim().replace(/\/+$/, '');
+  const providerAtStart = providerEl.value;
+  const provider = useText ? providerAtStart : 'custom';
+  const endpoint = (useText ? (provider === 'custom' ? apiBaseUrlEl.value : (MODEL_ENDPOINTS[provider] || '')) : visionEndpointEl.value).trim().replace(/\/+$/, '');
   const key = (useText ? apiKeyEl.value : visionKeyEl.value).trim();
   list.replaceChildren();
   status.dataset.state = '';
-  if (!endpoint || !key) { status.textContent = modelCopy()[2]; return; }
+  const chatGPTModels = provider === 'openai-siwc';
+  if (!chatGPTModels && (!endpoint || !key)) { status.textContent = modelCopy()[2]; return; }
   btn.disabled = true;
   status.textContent = modelCopy()[1];
   const controller = new AbortController();
@@ -844,17 +980,24 @@ async function fetchModelList(vision) {
       ? {'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'}
       : {'Authorization': 'Bearer ' + key};
     const models = [];
-    let next = '';
-    do {
-      const url = new URL(endpoint + '/models');
-      if (next) url.searchParams.set('after_id', next);
-      const response = await fetch(url.href, {headers, signal: controller.signal});
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json();
-      if (!Array.isArray(data.data)) throw new Error('Invalid model list response');
-      for (const item of data.data) if (typeof item.id === 'string') models.push(item.id);
-      next = provider === 'anthropic' && data.has_more ? data.last_id : '';
-    } while (next && models.length < 5000);
+    if (chatGPTModels) {
+      const available = await chatGPT.listModels({ signal: controller.signal });
+      if (!usingSiwc()) return;
+      models.push(...available.map(model => model.slug));
+    } else {
+      let next = '';
+      do {
+        const url = new URL(endpoint + '/models');
+        if (next) url.searchParams.set('after_id', next);
+        const response = await fetch(url.href, {headers, signal: controller.signal});
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (!Array.isArray(data.data)) throw new Error('Invalid model list response');
+        for (const item of data.data) if (typeof item.id === 'string') models.push(item.id);
+        next = provider === 'anthropic' && data.has_more ? data.last_id : '';
+      } while (next && models.length < 5000);
+    }
+    if (!vision && providerEl.value !== providerAtStart) return;
     [...new Set(models)].sort().forEach(id => { const option = document.createElement('option'); option.value = id; list.appendChild(option); });
     if (!list.children.length) throw new Error('No models returned');
     status.dataset.state = 'success';
@@ -901,7 +1044,7 @@ setupModelSearch('vision', visionModelEl);
 
 $('fetch-text-models').addEventListener('click', () => fetchModelList(false));
 $('fetch-vision-models').addEventListener('click', () => fetchModelList(true));
-[providerEl, apiBaseUrlEl, apiKeyEl].forEach(el => el.addEventListener('change', () => $('text-model-list').replaceChildren()));
+[apiBaseUrlEl, apiKeyEl].forEach(el => el.addEventListener('change', clearTextModelResults));
 [visionEndpointEl, visionKeyEl, visionUseTextEl].forEach(el => el.addEventListener('change', () => $('vision-model-list').replaceChildren()));
 
 // ─── Mermaid via sandboxed iframe (bypasses popup CSP) ───────────────────────

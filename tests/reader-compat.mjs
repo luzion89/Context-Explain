@@ -32,6 +32,7 @@ const extensionDir = process.env.EXTENSION_DIR || root;
 const trigger = '#ctx-explain-trigger';
 const panel = '#ctx-explain-root';
 const requests = [];
+let resumeResizeStream;
 
 const pageText = '<title>Fixture</title><main><p>First bank means river.</p>' +
   '<p id="sample">Finance <i>bank</i> holds money <b>bank</b> today.</p>' +
@@ -109,6 +110,12 @@ const server = createServer(async (req, res) => {
     requests.push(JSON.parse(body).messages);
     const content = 'Fixture answer.\n\n```mermaid\ngraph TD; A-->B\n```';
     res.setHeader('Content-Type', 'text/event-stream');
+    if (requests.at(-1).at(-1).content.includes('Resize while streaming')) {
+      const chunk = content => 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\n';
+      res.write(chunk('First chunk.'));
+      await new Promise(resolve => { resumeResizeStream = resolve; });
+      return res.end(chunk('\nMore content.\n'.repeat(100)) + 'data: [DONE]\n\n');
+    }
     return res.end('data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\ndata: [DONE]\n\n');
   }
   if (readerInput.has(path)) {
@@ -151,6 +158,7 @@ const server = createServer(async (req, res) => {
         shadow.innerHTML = '<span>Shadow before <b>shadow phrase</b> after.</span>';
         if (mode === 'closed') window.closedTestNode = shadow.querySelector('b').firstChild;
       }</script>`,
+    '/resize': '<p id="resize-quote" style="position:fixed;top:60vh;left:40vw">Resize while streaming</p>',
     '/reader': readerPage
   };
   res.end('<!DOCTYPE html>' + (pages[path] || ''));
@@ -437,11 +445,10 @@ try {
     await select(page, '#adjacent');
     await action(page, 0);
     await page.locator('#adjacent .ctx-explain-mark').waitFor();
-    await settings.evaluate(async () => {
-      const history = (await chrome.storage.local.get('ctxHistory')).ctxHistory;
-      const entry = history.find(entry => entry.term === 'Adjacent paragraph.');
-      await changeHistory('delete', entry.id);
-    });
+    await settings.locator('[data-tab=history]').click();
+    await settings.locator('#histSearch').fill('Adjacent paragraph.');
+    await settings.locator('.hist-item').filter({ has: settings.getByText('Adjacent paragraph.', { exact: true }) })
+      .locator('.hist-delete-btn').click();
     await page.locator('#adjacent .ctx-explain-mark').waitFor({ state: 'detached' });
     assert.ok(!(await getHistory()).some(entry => entry.term === 'Adjacent paragraph.'));
     pass('history deletion also removes the source underline');
@@ -463,6 +470,35 @@ try {
     const manifestVersion = await settings.evaluate(() => chrome.runtime.getManifest().version);
     assert.equal(await settings.locator('.footer-version').textContent(), 'v' + manifestVersion);
     assert.doesNotMatch(await settings.locator('#page-settings').innerText(), /Selection compatibility|选区兼容性/);
+    await settings.evaluate(() => chrome.storage.local.remove('panelGeometry'));
+    await page.goto(origin + '/resize');
+    await select(page, '#resize-quote');
+    await action(page, 0);
+    const resizable = page.locator(panel + ' .panel');
+    await resizable.getByText('First chunk.').waitFor();
+    await until(() => resizable.evaluate(el => getComputedStyle(el).transform === 'matrix(1, 0, 0, 1, 0, 0)'),
+      'panel entrance animation finished');
+    const initial = await resizable.boundingBox();
+    for (const edge of ['right', 'left']) {
+      const box = await resizable.boundingBox();
+      const direction = edge === 'left' ? -1 : 1;
+      const x = edge === 'left' ? box.x + 2 : box.x + box.width - 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + direction * 40, y, { steps: 4 });
+      await page.mouse.up();
+      await until(async () => (await resizable.boundingBox()).width >= box.width + 38, edge + ' resize');
+    }
+    resumeResizeStream();
+    await resizable.getByText('More content.', { exact: false }).first().waitFor();
+    const finalBox = await resizable.boundingBox();
+    const viewportHeight = await page.evaluate(() => innerHeight);
+    assert.ok(Math.abs(finalBox.height - initial.height) <= 1, 'horizontal resize must keep the original height');
+    assert.ok(Math.abs(finalBox.y - initial.y) <= 1, 'horizontal resize must keep the original top');
+    assert.ok(finalBox.y + finalBox.height <= viewportHeight, 'the lower edge must remain visible');
+    pass('both side handles preserve panel height during streamed output');
+
     for (const url of ['chrome://version/', origin + '/fixture.pdf']) {
       await page.goto(url);
       if (url.endsWith('.pdf')) assert.equal(await page.evaluate(() => document.contentType), 'application/pdf');
@@ -479,6 +515,7 @@ try {
   }
   console.log(passed + ' browser checks passed');
 } finally {
+  resumeResizeStream?.();
   if (browser) {
     const cdp = await browser.newBrowserCDPSession().catch(() => null);
     await cdp?.send('Browser.close').catch(() => {});

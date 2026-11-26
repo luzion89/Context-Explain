@@ -6,7 +6,7 @@
 
 **AI-powered contextual explanations, right where you read.**
 
-[![Version](https://img.shields.io/badge/version-2.3.1-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.3.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -20,6 +20,18 @@ English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Cont
 </div>
 
 ---
+
+**Sign In with ChatGPT (local preview).** In Settings → Text API, select OpenAI (Sign In with ChatGPT), authorize ChatGPT plan access, optionally choose a model from the account’s model list, and save. Independent Vision API settings are required for image requests. The extension requires Chrome 121 or later.
+
+## v2.3.3 preview
+
+- Keep the conversation panel within view when resizing it during a streamed reply. Scroll up to pause automatic following, then return to the bottom to resume. Drag the top edge to change the height.
+- Connect a ChatGPT account for text requests. This integration has been tested with a simulated account. Live authorization in Context Explain is pending.
+
+## v2.3.2 updates
+
+- DeepSeek Thinking and Network preferences persist across conversations and browser restarts.
+- The settings footer links to GitHub Issues for support with a localized label.
 
 ## v2.3.1 updates
 

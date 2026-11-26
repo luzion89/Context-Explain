@@ -288,6 +288,7 @@ const PANEL_STYLES = getThemeVarsCSS() + `
   /* Edge handles — visible indicator: a short centered line */
   .ctx-resize-e  { top: 16px; right: -3px; width: 6px; bottom: 16px; cursor: ew-resize; }
   .ctx-resize-w  { top: 16px; left: -3px;  width: 6px; bottom: 16px; cursor: ew-resize; }
+  .ctx-resize-n  { top: -3px; left: 16px; height: 6px; right: 16px; cursor: ns-resize; }
   .ctx-resize-s  { left: 16px; bottom: -3px; height: 6px; right: 16px; cursor: ns-resize; }
 
   .ctx-resize-e::after,
@@ -301,6 +302,15 @@ const PANEL_STYLES = getThemeVarsCSS() + `
     background: var(--accent-border);
   }
   .ctx-resize-s::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px; height: 2px;
+    border-radius: 2px;
+    background: var(--accent-border);
+  }
+  .ctx-resize-n::after {
     content: '';
     position: absolute;
     top: 50%; left: 50%;
@@ -536,6 +546,10 @@ let lastChunkTime = 0;
 let accumulatedText = '';
 let conversationMessages = [];
 let dsThinking = false, dsNetwork = false;
+const deepseekPreferencesReady = chrome.storage.local.get(['dsThinking', 'dsNetwork']).then(data => {
+  dsThinking = data.dsThinking === true;
+  dsNetwork = data.dsNetwork === true;
+}).catch(() => {});
 let dsReasoning = '', dsToolCalls = null, dsAnnotations = null;
 let currentTerm = '';
 let currentContextBefore = '';
@@ -1151,11 +1165,12 @@ function buildPanel(btnX, btnY, contextKey, mode) {
         </div>
       </div>
     </div>
-    <div class="ctx-resize-sw ctx-resize-handle"></div>
-    <div class="ctx-resize-se ctx-resize-handle"></div>
-    <div class="ctx-resize-e ctx-resize-handle"></div>
-    <div class="ctx-resize-w ctx-resize-handle"></div>
-    <div class="ctx-resize-s ctx-resize-handle"></div>
+    <div class="ctx-resize-sw ctx-resize-handle" data-resize-edge="sw"></div>
+    <div class="ctx-resize-se ctx-resize-handle" data-resize-edge="se"></div>
+    <div class="ctx-resize-e ctx-resize-handle" data-resize-edge="e"></div>
+    <div class="ctx-resize-w ctx-resize-handle" data-resize-edge="w"></div>
+    <div class="ctx-resize-n ctx-resize-handle" data-resize-edge="n"></div>
+    <div class="ctx-resize-s ctx-resize-handle" data-resize-edge="s"></div>
   `);
   shadowRoot.appendChild(panelEl);
   localizePanel();
@@ -1179,11 +1194,13 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   recapBtn = panelEl.querySelector('.recap-btn');
   const thinkingToggle = panelEl.querySelector('.ds-thinking');
   const networkToggle = panelEl.querySelector('.ds-network');
-  dsThinking = false; dsNetwork = false; dsReasoning = ''; dsToolCalls = null; dsAnnotations = null;
+  dsReasoning = ''; dsToolCalls = null; dsAnnotations = null;
   const panelForConfig = panelEl;
   if (!_currentMode.startsWith('image')) {
-    loadConfig().then(cfg => {
+    Promise.all([loadConfig(), deepseekPreferencesReady]).then(([cfg]) => {
       if (panelEl !== panelForConfig || cfg.apiProvider !== 'deepseek') return;
+      thinkingToggle.setAttribute('aria-pressed', String(dsThinking));
+      networkToggle.setAttribute('aria-pressed', String(dsNetwork));
       thinkingToggle.hidden = false; networkToggle.hidden = false;
     }).catch(() => {});
   }
@@ -1193,6 +1210,7 @@ function buildPanel(btnX, btnY, contextKey, mode) {
       const enabled = button.getAttribute('aria-pressed') !== 'true';
       button.setAttribute('aria-pressed', String(enabled));
       if (name === 'thinking') dsThinking = enabled; else dsNetwork = enabled;
+      chrome.storage.local.set({dsThinking, dsNetwork}).catch(() => {});
     });
   }
   footerStatus = panelEl.querySelector('.footer-status');
@@ -1212,9 +1230,12 @@ function buildPanel(btnX, btnY, contextKey, mode) {
   conversationBody.addEventListener('scroll', () => {
     if (!isStreaming) return;
     const distFromBottom = conversationBody.scrollHeight - conversationBody.scrollTop - conversationBody.clientHeight;
-    // If more than 40px from bottom, user scrolled up intentionally
-    _userScrolled = distFromBottom > 40;
+    // Keep manual positioning until the user scrolls back to the bottom.
+    _userScrolled = distFromBottom > 4;
   });
+  conversationBody.addEventListener('wheel', (event) => {
+    if (isStreaming && event.deltaY < 0 && conversationBody.scrollTop > 0) _userScrolled = true;
+  }, { passive: true });
   followupInput = panelEl.querySelector('.followup-input');
   followupSend = panelEl.querySelector('.followup-send');
 
@@ -1439,51 +1460,63 @@ function setupResize(panelEl) {
   const MIN_W = 380, MIN_H = 380;
   panelEl.querySelectorAll('.ctx-resize-handle').forEach(handle => {
     handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       const startX = e.clientX, startY = e.clientY;
       const startW = panelEl.offsetWidth, startH = panelEl.offsetHeight;
       const startLeft = parseFloat(panelEl.style.left) || 0;
-      const startTop  = parseFloat(panelEl.style.top)  || 0;
+      const startTop = parseFloat(panelEl.style.top) || 0;
+      const startRight = startLeft + startW;
+      const startBottom = startTop + startH;
 
-      const isSW = handle.classList.contains('ctx-resize-sw');
-      const isSE = handle.classList.contains('ctx-resize-se');
-      const isE  = handle.classList.contains('ctx-resize-e');
-      const isW  = handle.classList.contains('ctx-resize-w');
-      const isS  = handle.classList.contains('ctx-resize-s');
-
-      const resizeW = isSW || isSE || isE || isW;
-      const resizeH = isSW || isSE || isS;
-      const fromLeft = isSW || isW;
+      const edge = handle.dataset.resizeEdge;
+      const fromLeft = edge.includes('w');
+      const fromTop = edge === 'n';
+      const resizeW = fromLeft || edge.includes('e');
+      const resizeH = fromTop || edge.includes('s');
 
       let animFrame = null;
+      let lastMove = null;
+      const applyResize = (ev) => {
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        const bounds = ctxFrame.viewport();
+        const left = Math.max(bounds.left, startLeft);
+        const top = Math.max(bounds.top, startTop);
+        const right = Math.min(bounds.right, startRight);
+        const bottom = Math.min(bounds.bottom, startBottom);
+        const availableW = Math.max(0, fromLeft ? right - bounds.left : bounds.right - left);
+        const availableH = Math.max(0, fromTop ? bottom - bounds.top : bounds.bottom - top);
+
+        if (resizeW) {
+          const minW = Math.min(MIN_W, availableW);
+          const width = Math.min(availableW, Math.max(minW, startW + (fromLeft ? -dx : dx)));
+          panelEl.style.width = width + 'px';
+          panelEl.style.left = (fromLeft ? right - width : left) + 'px';
+        }
+        // Set an explicit height before lifting the default max-height. Otherwise a
+        // width-only drag lets wrapped text and later stream chunks resize the panel.
+        const minH = resizeH ? Math.min(MIN_H, availableH) : 0;
+        const desiredHeight = resizeH ? startH + (fromTop ? -dy : dy) : startH;
+        const height = Math.min(availableH, Math.max(minH, desiredHeight));
+        panelEl.style.height = height + 'px';
+        panelEl.style.top = (fromTop ? bottom - height : top) + 'px';
+        panelEl.classList.add('has-geometry');
+      };
 
       const onMove = (ev) => {
-        if (animFrame) cancelAnimationFrame(animFrame);
+        lastMove = ev;
+        if (animFrame !== null) return;
         animFrame = requestAnimationFrame(() => {
-          const dx = ev.clientX - startX, dy = ev.clientY - startY;
-          const bounds = ctxFrame.viewport();
-          const maxW = Math.min(window.innerWidth * 0.9, bounds.right - bounds.left);
-          const maxH = Math.min(window.innerHeight * 0.9, bounds.bottom - bounds.top);
-
-          if (resizeW) {
-            let newW = fromLeft ? startW - dx : startW + dx;
-            newW = Math.max(MIN_W, Math.min(newW, maxW));
-            panelEl.style.width = newW + 'px';
-            if (fromLeft) {
-              panelEl.style.left = (startLeft - (newW - startW)) + 'px';
-            }
-          }
-          if (resizeH) {
-            let newH = startH + dy;
-            newH = Math.max(MIN_H, Math.min(newH, maxH));
-            panelEl.style.height = newH + 'px';
-          }
-          panelEl.classList.add('has-geometry');
+          animFrame = null;
+          if (panelEl.isConnected) applyResize(lastMove);
         });
       };
       const onUp = () => {
-        if (animFrame) cancelAnimationFrame(animFrame);
+        if (animFrame !== null) {
+          cancelAnimationFrame(animFrame);
+          if (panelEl.isConnected) applyResize(lastMove);
+        }
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         savePanelGeometry(panelEl);
@@ -1634,7 +1667,7 @@ async function loadConfig() {
   return new Promise((resolve, reject) => {
     try {
       chrome.storage.sync.get(
-        ['apiProvider','apiKey','apiModel','apiBaseUrl','responseLang','translateLang'],
+        ['apiProvider','apiKey','apiModel','siwcModel','apiBaseUrl','responseLang','translateLang'],
         (result) => {
           if (chrome.runtime.lastError) {
             reject(new Error('__invalidated__'));
@@ -1683,7 +1716,7 @@ function startStream() {
 }
 
 async function runFetch(signal) {
-  await ctxPromptsReady;
+  await Promise.all([ctxPromptsReady, deepseekPreferencesReady]);
   const config = await loadConfig();
   signal.throwIfAborted();
   const provider   = config.apiProvider || 'openai';
@@ -1693,7 +1726,7 @@ async function runFetch(signal) {
   const lang       = config.responseLang || 'auto';
   const translateLang = config.translateLang || 'Chinese (Simplified)';
 
-  if (!apiKey) {
+  if (!apiKey && provider !== 'openai-siwc') {
     handleStreamFailure('No API key configured. Click the extension icon to set up.');
     return;
   }
@@ -1720,11 +1753,62 @@ async function runFetch(signal) {
   }
 
   if (contextUnavailable) systemPrompt += '\nOnly the selected text is available. Do not assume surrounding context.';
-  if (provider === 'anthropic') {
+  if (provider === 'openai-siwc') {
+    await fetchChatGPT(config.siwcModel || '', systemPrompt, conversationMessages, signal);
+  } else if (provider === 'anthropic') {
     await fetchAnthropic({ apiKey, model, systemPrompt, messages: conversationMessages, signal });
   } else {
     await fetchOpenAI({ provider, apiKey, apiBaseUrl, model, systemPrompt, messages: conversationMessages, signal });
   }
+}
+
+async function fetchChatGPT(model, instructions, messages, signal) {
+  await new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const port = chrome.runtime.connect({ name: 'ctx-siwc-stream' });
+
+    let finished = false;
+    function finish(error) {
+      if (finished) return;
+      finished = true;
+      signal.removeEventListener('abort', cancel);
+      port.disconnect();
+      if (error) reject(error);
+      else resolve();
+    }
+
+    function cancel() {
+      finish(signal.reason);
+    }
+
+    signal.addEventListener('abort', cancel, { once: true });
+    port.onDisconnect.addListener(() => {
+      void chrome.runtime.lastError;
+      finish(new Error('ChatGPT connection interrupted. Please retry.'));
+    });
+    port.onMessage.addListener(message => {
+      if (message.error) {
+        const { code, message: details } = message.error;
+        const needsAuth = ['auth_required', 'reauth_required', 'plan_scope_missing'].includes(code);
+        finish(new Error(needsAuth ? 'Authorize ChatGPT in Context Explain settings, then retry.' : details));
+      } else if (message.result) {
+        finish();
+      } else if (typeof message.delta === 'string') {
+        lastChunkTime = Date.now();
+        appendChunk(message.delta);
+      }
+    });
+    try {
+      const input = messages
+        .filter(message => message.content?.trim())
+        .map(({ role, content }) => ({ role, content }));
+      port.postMessage({ type: 'streamResponse', model, instructions, input, deltas: true });
+    } catch (error) {
+      finish(error);
+    }
+  });
+  signal.throwIfAborted();
+  await onDone();
 }
 
 async function fetchOpenAI({ provider, apiKey, apiBaseUrl, model, systemPrompt, messages, signal }) {
@@ -2572,7 +2656,7 @@ async function runImageFetch(userQuestion) {
           if (chunk && isStreaming) {
             accumulatedText += chunk;
             streamEl.textContent = accumulatedText;
-            if (convBody) convBody.scrollTop = convBody.scrollHeight;
+            if (convBody && !_userScrolled) convBody.scrollTop = convBody.scrollHeight;
           }
         } catch {}
       }

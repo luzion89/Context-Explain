@@ -45,11 +45,19 @@
 
 <h2>Data You Provide</h2>
 <p>
-  To use the extension you must supply an API key from an AI provider of your choice
+  For providers that use API keys, supply a key from an AI provider of your choice
   (e.g. OpenAI, Anthropic, DeepSeek, or a compatible service). This key is stored
   <strong>locally in your browser</strong> using Chrome's <code>chrome.storage.sync</code> API,
   which may sync across your Chrome profile's devices via your Google account. The key is never
   sent anywhere except directly to the API endpoint you configure.
+</p>
+
+<p>
+  If you choose Sign In with ChatGPT, OpenAI handles sign-in and plan authorization.
+  Context Explain displays the name or email OpenAI returns and stores authorization
+  credentials in encrypted storage in this browser profile. The extension sends text
+  requests directly to OpenAI using that authorization. Disconnect in extension settings
+  to remove the local credentials and request revocation.
 </p>
 
 <h2>Data Sent to AI Providers</h2>
@@ -128,9 +136,15 @@
 
   <h2>你提供的数据</h2>
   <p>
-    使用本扩展需要提供你选择的 AI 服务商的 API Key（如 OpenAI、Anthropic、DeepSeek 或兼容服务）。
+    使用 API Key 模式时，请提供所选 AI 服务商的密钥（如 OpenAI、Anthropic、DeepSeek 或兼容服务）。
     该密钥通过 Chrome 的 <code>chrome.storage.sync</code> API 存储在<strong>本地浏览器</strong>中，
     可能通过你的 Google 账户在多设备间同步。该密钥只会发送到你配置的 API 端点，不会发送到其他地方。
+  </p>
+
+  <p>
+    选择使用 ChatGPT 登录时，OpenAI 负责登录和套餐授权。本扩展显示 OpenAI 返回的姓名或邮箱，
+    并将授权凭证加密保存在当前浏览器配置中。文本请求使用该授权直接发送给 OpenAI。
+    在扩展设置中断开连接可清除本地凭证并请求撤销授权。
   </p>
 
   <h2>发送给 AI 服务商的数据</h2>

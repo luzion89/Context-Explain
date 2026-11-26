@@ -1,15 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Context Explain",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "description": "Understand anything as you read: context-aware AI explanations, translations & follow-up Q&A without leaving the page. BYO API key.",
   "permissions": [
     "storage",
     "unlimitedStorage",
-    "contextMenus"
+    "contextMenus",
+    "alarms",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://127.0.0.1/*",
+    "https://auth.openai.com/*",
+    "https://api.openai.com/*"
   ],
   "sandbox": {
     "pages": [
@@ -17,7 +22,8 @@
     ]
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "worker.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -56,6 +62,15 @@
       "matches": [
         "<all_urls>"
       ]
+    },
+    {
+      "resources": [
+        "siwc/callback.html"
+      ],
+      "matches": [
+        "http://127.0.0.1/*",
+        "https://auth.openai.com/*"
+      ]
     }
   ],
   "icons": {
@@ -63,5 +78,6 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "minimum_chrome_version": "121"
 }

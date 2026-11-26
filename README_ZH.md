@@ -6,7 +6,7 @@
 
 **在阅读的地方，获得 AI 的语境化解释。**
 
-[![Version](https://img.shields.io/badge/version-2.3.1-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.3.3-blue)](https://github.com/luzion89/Context-Explain/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com/luzion89/Context-Explain/releases)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://developer.chrome.com/docs/extensions/mv3/)
@@ -20,6 +20,18 @@
 </div>
 
 ---
+
+**使用 ChatGPT 登录（本地预览）**。在「设置 → 文本 API」选择 OpenAI（Sign In with ChatGPT），授权使用 ChatGPT 套餐。可从账号的模型列表选择模型，然后保存设置。图片请求需独立配置视觉 API。扩展需要 Chrome 121 或更新版本。
+
+## v2.3.3 预览版
+
+- 修复流式输出期间横向拖拽导致面板超出屏幕的问题。向上滚动可暂停跟随输出，回到底部后恢复。面板上边缘可拖拽调节高度。
+- 支持连接 ChatGPT 账号进行文本请求。已使用模拟账号通过集成测试，Context Explain 中的真实授权仍待验证。
+
+## v2.3.2 更新
+
+- DeepSeek 深度思考和联网搜索开关会记住选择，在后续对话和浏览器重启后恢复。
+- 设置页脚改为 GitHub Issues 技术支持入口，并根据界面语言显示。
 
 ## v2.3.1 更新
 
