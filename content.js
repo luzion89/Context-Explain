@@ -125,18 +125,22 @@ function renderMarkdown(raw) {
     html = html.replace(/MATHPH(\d+)MATHPH/g, (_, idx) => {
       const { display, tex } = maths[parseInt(idx)];
       try {
-        return katex.renderToString(tex, {
-          displayMode: display, throwOnError: false, output: 'html', trust: false,
+        // Use native MathML layout on pages in quirks mode.
+        const nativeMath = document.compatMode === 'BackCompat';
+        const markup = katex.renderToString(tex, {
+          displayMode: display, throwOnError: false,
+          output: nativeMath ? 'mathml' : 'html', trust: false,
         });
+        return nativeMath && display ? `<span class="katex-display">${markup}</span>` : markup;
       } catch (e) {
-        return `<code class="math-fallback">${tex}</code>`;
+        return `<code class="math-fallback">${escHtml(tex)}</code>`;
       }
     });
   } else {
     // KaTeX unavailable — restore raw LaTeX inside <code>
     html = html.replace(/MATHPH(\d+)MATHPH/g, (_, idx) => {
       const { tex } = maths[parseInt(idx)];
-      return `<code class="math-fallback">${tex}</code>`;
+      return `<code class="math-fallback">${escHtml(tex)}</code>`;
     });
   }
 

@@ -2,10 +2,10 @@ import { createChatGPT } from './siwc/client.js';
 
 const chatGPT = createChatGPT();
 const SIWC_COPY = {
-  English: ['Username', 'Authorize', 'Awaiting authorization…', 'Not connected', 'Authorize ChatGPT plan access to use text models.', 'Leave blank to use an available model', 'ChatGPT is authorized for text requests.', 'Disconnect'],
-  'Chinese (Simplified)': ['用户名', '认证授权', '等待授权…', '未连接', '授权使用 ChatGPT 套餐后即可调用文本模型。', '留空时自动使用可用模型', '已授权使用 ChatGPT 文本模型。', '断开连接'],
-  Japanese: ['ユーザー名', '認証・許可', '認証待ち…', '未接続', 'テキストモデルを使うには ChatGPT プランの利用を許可してください。', '空欄なら利用可能なモデルを選択', 'ChatGPT のテキスト利用を許可済みです。', '接続を解除'],
-  Korean: ['사용자 이름', '인증 및 승인', '승인 대기 중…', '연결되지 않음', '텍스트 모델을 사용하려면 ChatGPT 플랜 사용을 승인하세요.', '비워 두면 사용 가능한 모델을 선택', 'ChatGPT 텍스트 사용이 승인되었습니다.', '연결 해제'],
+  English: ['Username', 'Authorize', 'Awaiting authorization…', 'Not connected', 'Authorize ChatGPT plan access to use text models.', 'Leave blank to use an available model', 'ChatGPT is authorized for text requests.', 'Remove ChatGPT authorization', 'The model did not finish within 30 seconds.'],
+  'Chinese (Simplified)': ['用户名', '认证授权', '等待授权…', '未连接', '授权使用 ChatGPT 套餐后即可调用文本模型。', '留空时自动使用可用模型', '已授权使用 ChatGPT 文本模型。', '清除 ChatGPT 授权', '模型未在 30 秒内完成响应。'],
+  Japanese: ['ユーザー名', '認証・許可', '認証待ち…', '未接続', 'テキストモデルを使うには ChatGPT プランの利用を許可してください。', '空欄なら利用可能なモデルを選択', 'ChatGPT のテキスト利用を許可済みです。', 'ChatGPT の認証を解除', 'モデルは 30 秒以内に応答を完了しませんでした。'],
+  Korean: ['사용자 이름', '인증 및 승인', '승인 대기 중…', '연결되지 않음', '텍스트 모델을 사용하려면 ChatGPT 플랜 사용을 승인하세요.', '비워 두면 사용 가능한 모델을 선택', 'ChatGPT 텍스트 사용이 승인되었습니다.', 'ChatGPT 인증 삭제', '모델이 30초 이내에 응답을 완료하지 않았습니다.'],
 };
 let siwcSession;
 let siwcActionPending = false;
@@ -297,23 +297,41 @@ function siwcAuthorized() {
 function updateSiwcUI() {
   const enabled = usingSiwc();
   const copy = siwcCopy();
-  const label = document.querySelector('label[for="apiKey"], label[for="siwc-username"]');
+  const label = $('text-credential-label');
   label.htmlFor = enabled ? 'siwc-username' : 'apiKey';
   label.textContent = enabled ? copy[0] : (UI_STRINGS[currentModelLanguage] || UI_STRINGS.English).labelApiKey;
   apiKeyEl.hidden = enabled;
   const username = $('siwc-username');
   username.hidden = !enabled;
-  username.value = siwcSession?.identity?.name || siwcSession?.identity?.email ||
-    siwcSession?.profileLabel || (siwcAuthorized() ? copy[6] : copy[3]);
-  toggleKeyEl.disabled = enabled && (siwcActionPending || siwcSession?.status === 'connecting');
-  toggleKeyEl.textContent = enabled
-    ? (toggleKeyEl.disabled ? copy[2] : copy[1])
-    : (apiKeyEl.type === 'password' ? 'show' : 'hide');
+  const hasAccount = siwcSession?.status === 'connected' || siwcSession?.status === 'reauth_required';
+  username.value = hasAccount
+    ? siwcSession.identity?.name || siwcSession.identity?.email || siwcSession.profileLabel || copy[3]
+    : copy[3];
+  toggleKeyEl.hidden = enabled;
+  const busy = siwcActionPending || siwcSession?.status === 'connecting';
+  const authorize = $('siwc-authorize');
+  authorize.hidden = !enabled;
+  authorize.disabled = busy;
+  authorize.textContent = busy ? copy[2] : copy[1];
   $('siwc-result').hidden = !enabled;
-  $('siwc-disconnect').textContent = copy[7];
-  $('siwc-disconnect').hidden = !enabled || siwcSession?.status !== 'connected';
-  $('siwc-disconnect').disabled = siwcActionPending;
+  const remove = $('siwc-disconnect');
+  remove.hidden = !enabled || !hasAccount;
+  remove.disabled = busy;
+  remove.setAttribute('aria-label', copy[7]);
+  remove.title = copy[7];
   visionUseTextEl.disabled = enabled;
+  const visionHelp = $('vision-reuse-help');
+  const visionTooltip = $('vision-reuse-tooltip');
+  visionHelp.hidden = !enabled;
+  const visionReuseHelp = {
+    English: ['Why is this disabled?', 'Sign In with ChatGPT supports text only here. Configure a separate Vision API endpoint, key, and model.'],
+    'Chinese (Simplified)': ['为什么无法选中？', '当前 ChatGPT 登录方式仅支持文本。请单独配置视觉 API 的端点、密钥和模型。'],
+    Japanese: ['選択できない理由', '現在の ChatGPT ログインはテキスト専用です。画像用の API エンドポイント、キー、モデルを個別に設定してください。'],
+    Korean: ['선택할 수 없는 이유', '현재 ChatGPT 로그인은 텍스트만 지원합니다. 이미지용 API 주소, 키, 모델을 별도로 설정하세요.'],
+  };
+  const [helpLabel, helpText] = visionReuseHelp[currentModelLanguage] || visionReuseHelp.English;
+  visionHelp.setAttribute('aria-label', helpLabel);
+  visionTooltip.textContent = helpText;
   if (enabled) {
     if (visionUseTextEl.checked) {
       visionUseTextEl.checked = false;
@@ -327,7 +345,10 @@ function updateSiwcUI() {
 chatGPT.subscribe(session => {
   const accountChanged = siwcSession?.profileId !== session.profileId || siwcSession?.sharing !== session.sharing;
   siwcSession = session;
-  if (usingSiwc() && accountChanged) clearTextModelResults();
+  if (usingSiwc() && accountChanged) {
+    clearTextModelResults();
+    clearTextConnectionResult();
+  }
   updateSiwcUI();
 });
 
@@ -350,9 +371,15 @@ function clearTextModelResults() {
   apiModelEl.removeAttribute('aria-activedescendant');
 }
 
+function clearTextConnectionResult() {
+  $('test-text-result').textContent = '';
+  $('test-text-result').style.display = '';
+  $('test-text-api').classList.remove('check-success', 'check-error');
+}
+
 providerEl.addEventListener('change', () => {
   clearTextModelResults();
-  $('test-text-result').textContent = '';
+  clearTextConnectionResult();
   const wasSiwc = displayedProvider === 'openai-siwc';
   if (wasSiwc !== usingSiwc()) {
     if (wasSiwc) siwcModel = apiModelEl.value;
@@ -382,11 +409,11 @@ $('siwc-disconnect').addEventListener('click', () => {
   void runSiwcAction(() => chatGPT.disconnect());
 });
 
+$('siwc-authorize').addEventListener('click', () => {
+  void runSiwcAction(() => chatGPT.signIn({ reconsent: !siwcAuthorized() && siwcSession?.status === 'connected' }));
+});
+
 toggleKeyEl.addEventListener('click', () => {
-  if (usingSiwc()) {
-    void runSiwcAction(() => chatGPT.signIn({ reconsent: !siwcAuthorized() && siwcSession?.status === 'connected' }));
-    return;
-  }
   const show = apiKeyEl.type === 'password';
   apiKeyEl.type = show ? 'text' : 'password';
   toggleKeyEl.textContent = show ? 'hide' : 'show';
@@ -797,6 +824,7 @@ function mdToSimpleHtml(text) {
 
 // ─── API Connection Test ───────────────────────────────────────────────────────
 const TEST_TIMEOUT_MS = 10000;
+const SIWC_TEST_TIMEOUT_MS = 30000;
 
 function classifyApiError(e, status) {
   if (e.name === 'AbortError') return 'Request timed out (10s). Check your endpoint URL and network.';
@@ -903,23 +931,53 @@ async function runApiTest(btn, resultEl, endpoint, apiKey, model, isVision) {
   }
 }
 
+async function runSiwcConnectionTest(button, result) {
+  button.disabled = true;
+  button.classList.remove('check-success', 'check-error');
+  button.classList.add('spinning');
+  result.className = 'test-inline-result';
+  result.style.display = 'block';
+  result.textContent = modelCopy()[1];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SIWC_TEST_TIMEOUT_MS);
+  const start = performance.now();
+  const profileId = siwcSession?.profileId;
+  const sharing = siwcSession?.sharing;
+  const stillSelected = () => usingSiwc() && siwcSession?.profileId === profileId && siwcSession?.sharing === sharing;
+  try {
+    const model = apiModelEl.value.trim() || (await chatGPT.listModels({ signal: controller.signal }))[0]?.slug;
+    if (!model) throw new Error('No models are available for this ChatGPT account.');
+    const response = await chatGPT.streamResponse({
+      model, input: 'Reply with one word: OK.', signal: controller.signal,
+    });
+    if (!response.text.trim()) throw new Error('The model returned an empty response.');
+    if (stillSelected()) {
+      const latency = Math.round(performance.now() - start);
+      result.textContent = `✓ ${settingsText(1)} — ${latency} ms`;
+      result.classList.add('success');
+      button.classList.add('check-success');
+    }
+  } catch (error) {
+    if (stillSelected()) {
+      const detail = controller.signal.aborted ? siwcCopy()[8] : error.message;
+      result.textContent = `✗ ${settingsText(2)} · ${detail}`;
+      result.classList.add('error');
+      button.classList.add('check-error');
+    }
+  } finally {
+    clearTimeout(timeout);
+    button.classList.remove('spinning');
+    button.disabled = false;
+  }
+}
+
 // Wire up test buttons after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   $('test-text-api')?.addEventListener('click', async () => {
     const provider = providerEl.value;
     if (usingSiwc()) {
-      const button = $('test-text-api');
-      const result = $('test-text-result');
-      button.disabled = true;
-      result.textContent = modelCopy()[1];
-      try {
-        await chatGPT.listModels();
-        if (usingSiwc()) result.textContent = settingsText(1);
-      } catch (error) {
-        if (usingSiwc()) result.textContent = settingsText(2) + ' · ' + error.message;
-      } finally {
-        button.disabled = false;
-      }
+      await runSiwcConnectionTest($('test-text-api'), $('test-text-result'));
       return;
     }
     let endpoint = apiBaseUrlEl.value.trim();
@@ -955,6 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   });
 });
+
+const modelNameOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 // Fetch model IDs without replacing the editable model field.
 const MODEL_ENDPOINTS = {openai: 'https://api.openai.com/v1', anthropic: 'https://api.anthropic.com/v1', deepseek: 'https://api.deepseek.com/v1'};
@@ -998,7 +1058,7 @@ async function fetchModelList(vision) {
       } while (next && models.length < 5000);
     }
     if (!vision && providerEl.value !== providerAtStart) return;
-    [...new Set(models)].sort().forEach(id => { const option = document.createElement('option'); option.value = id; list.appendChild(option); });
+    [...new Set(models)].sort((a, b) => modelNameOrder.compare(b, a)).forEach(id => { const option = document.createElement('option'); option.value = id; list.appendChild(option); });
     if (!list.children.length) throw new Error('No models returned');
     status.dataset.state = 'success';
     status.textContent = modelCopy()[3];

@@ -226,11 +226,9 @@
       border-radius: 3px; font-family: inherit;
       transition: color 0.15s;
     }
-    #siwc-username { padding-right: 8px; user-select: none; }
-    .key-wrapper:has(#siwc-username:not([hidden])) { display: flex; align-items: center; gap: 8px; }
-    .key-wrapper:has(#siwc-username:not([hidden])) .toggle-key {
-      position: static; transform: none; flex-shrink: 0;
-    }
+    #siwc-username { padding-right: 40px; user-select: none; }
+    #siwc-disconnect { font-size: 17px; line-height: 1; }
+    #siwc-disconnect:hover { color: var(--error); }
     .key-wrapper > [hidden] { display: none !important; }
     .toggle-key:hover { color: var(--text-secondary); }
 
@@ -564,6 +562,20 @@
       margin-top: 4px;
       line-height: 1.4;
     }
+    .vision-reuse-row { position: relative; display: flex; align-items: center; gap: 6px; }
+    .vision-reuse-row .checkbox-label { margin: 0; }
+    #vision-reuse-help {
+      width: 16px; height: 16px; padding: 0; border: 1px solid var(--border);
+      border-radius: 50%; background: var(--surface); color: var(--text-secondary);
+      font: inherit; font-size: 11px; line-height: 1; cursor: help; flex-shrink: 0;
+    }
+    #vision-reuse-tooltip {
+      display: none; position: absolute; z-index: 2; right: 0; top: 100%;
+      max-width: 100%; padding: 6px 8px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--bg-surface); color: var(--text-primary);
+      font-size: 11.5px; line-height: 1.4;
+    }
+    #vision-reuse-help:not([hidden]):is(:hover, :focus-visible) + #vision-reuse-tooltip { display: block; }
     .checkbox-label {
       display: flex;
       align-items: center;
@@ -649,8 +661,8 @@
     .save-section { border-top:0 !important; }
     .section:has(+ .save-section) { border-bottom:0; }
     .model-input-wrapper { position: relative; }
-    #fetch-text-models, #fetch-vision-models { margin-top: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 11px; }
-    #fetch-text-models:disabled, #fetch-vision-models:disabled { opacity: .5; cursor: default; }
+    #fetch-text-models, #fetch-vision-models, #siwc-authorize { margin-top: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 11px; }
+    #fetch-text-models:disabled, #fetch-vision-models:disabled, #siwc-authorize:disabled { opacity: .5; cursor: default; }
     .model-input-wrapper input { padding-right: 32px; }
     .btn-model-check {
       position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -731,14 +743,17 @@
         </select>
       </div>
       <div class="setting-group">
-        <label for="apiKey">API Key</label>
+        <div class="model-label-row">
+          <label id="text-credential-label" for="apiKey">API Key</label>
+          <button id="siwc-authorize" type="button" hidden>Authorize</button>
+        </div>
         <div class="key-wrapper">
           <input type="password" id="apiKey" placeholder="sk-…" autocomplete="off" spellcheck="false">
           <input type="text" id="siwc-username" disabled hidden>
           <button class="toggle-key" id="toggleKey" type="button">show</button>
+          <button class="toggle-key" id="siwc-disconnect" type="button" aria-label="Remove ChatGPT authorization" hidden>×</button>
         </div>
         <div class="field-hint" id="keyHint"></div>
-        <button id="siwc-disconnect" type="button" hidden>Disconnect</button>
         <div id="siwc-result" class="field-hint" role="status" hidden></div>
       </div>
       <div class="setting-group">
@@ -751,7 +766,7 @@
 
         <div id="text-models-result" class="field-hint" role="status"></div>
         <div class="field-hint" id="modelHint"></div>
-        <div id="test-text-result" class="test-inline-result"></div>
+        <div id="test-text-result" class="test-inline-result" role="status"></div>
       </div>
       <div class="setting-group" id="baseUrlGroup" style="display:none">
         <label for="apiBaseUrl">Base URL</label>
@@ -793,10 +808,14 @@
         <p class="hint">Enables right-click image explain/ask. Requires a vision-capable model.</p>
       </div>
       <div class="setting-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="vision-use-text-config">
-          <span>Use Text API configuration</span>
-        </label>
+        <div class="vision-reuse-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="vision-use-text-config">
+            <span>Use Text API configuration</span>
+          </label>
+          <button type="button" id="vision-reuse-help" aria-describedby="vision-reuse-tooltip" hidden>?</button>
+          <span id="vision-reuse-tooltip" role="tooltip"></span>
+        </div>
         <p class="hint">Copies Text API endpoint and key. Model must still be set manually.</p>
       </div>
     </div>

@@ -108,7 +108,12 @@ const server = createServer(async (req, res) => {
     let body = '';
     for await (const buffer of req) body += buffer;
     requests.push(JSON.parse(body).messages);
-    const content = 'Fixture answer.\n\n```mermaid\ngraph TD; A-->B\n```';
+    let content = 'Fixture answer.\n\n```mermaid\ngraph TD; A-->B\n```';
+    if (requests.at(-1).at(-1).content.includes('Formula render fixture')) {
+      content = String.raw`Inline \(x^2\) and display:
+
+$$\frac{a}{b}$$`;
+    }
     res.setHeader('Content-Type', 'text/event-stream');
     if (requests.at(-1).at(-1).content.includes('Resize while streaming')) {
       const chunk = content => 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\n';
@@ -159,9 +164,11 @@ const server = createServer(async (req, res) => {
         if (mode === 'closed') window.closedTestNode = shadow.querySelector('b').firstChild;
       }</script>`,
     '/resize': '<p id="resize-quote" style="position:fixed;top:60vh;left:40vw">Resize while streaming</p>',
+    '/math': '<p id="formula">Formula render fixture</p>',
+    '/quirks-math': '<p id="formula">Formula render fixture</p>',
     '/reader': readerPage
   };
-  res.end('<!DOCTYPE html>' + (pages[path] || ''));
+  res.end((path === '/quirks-math' ? '' : '<!DOCTYPE html>') + (pages[path] || ''));
 });
 server.listen(0, '0.0.0.0');
 await once(server, 'listening');
@@ -498,6 +505,28 @@ try {
     assert.ok(Math.abs(finalBox.y - initial.y) <= 1, 'horizontal resize must keep the original top');
     assert.ok(finalBox.y + finalBox.height <= viewportHeight, 'the lower edge must remain visible');
     pass('both side handles preserve panel height during streamed output');
+
+    for (const [path, compatMode] of [['/math', 'CSS1Compat'], ['/quirks-math', 'BackCompat']]) {
+      await page.goto(origin + path);
+      assert.equal(await page.evaluate(() => document.compatMode), compatMode);
+      await select(page, '#formula');
+      await action(page, 0);
+      const response = page.locator(panel + ' .response-block');
+      await response.locator('.katex-display').waitFor();
+      if (compatMode === 'BackCompat') {
+        const fraction = response.locator('math[display="block"] mfrac');
+        await fraction.waitFor({ state: 'visible' });
+        assert.equal(await response.locator('math').count(), 2);
+        const [numerator, denominator] = await fraction.evaluate(el =>
+          [...el.children].map(child => child.getBoundingClientRect().top));
+        assert.ok(denominator > numerator, 'the fraction should be vertically laid out');
+      } else {
+        await response.locator('.katex-display .katex-html .mfrac').waitFor();
+        assert.equal(await response.locator('.katex-html').count(), 2);
+      }
+      assert.equal(await response.locator('.katex-error, .math-fallback').count(), 0);
+    }
+    pass('inline and display formulas render in standards mode and quirks mode');
 
     for (const url of ['chrome://version/', origin + '/fixture.pdf']) {
       await page.goto(url);
