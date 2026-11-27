@@ -21,12 +21,15 @@
 
 ---
 
-**使用 ChatGPT 登录（本地预览）**。在「设置 → 文本 API」选择 OpenAI（Sign In with ChatGPT），授权使用 ChatGPT 套餐。可从账号的模型列表选择模型，然后保存设置。图片请求需独立配置视觉 API。扩展需要 Chrome 121 或更新版本。
+需要 Chrome 121 或更新版本。
 
-## v2.3.3 预览版
+## v2.3.3 更新
 
-- 修复流式输出期间横向拖拽导致面板超出屏幕的问题。向上滚动可暂停跟随输出，回到底部后恢复。面板上边缘可拖拽调节高度。
-- 支持连接 ChatGPT 账号进行文本请求。已使用模拟账号通过集成测试，Context Explain 中的真实授权仍待验证。
+- **使用 ChatGPT 登录**进行文字解释、翻译和追问。可在设置中授权、获取账号可用模型，并点击对勾测试所选模型、查看耗时。用户名框右侧的 × 可清除授权。
+- **授权回调页**根据已保存的回复语言显示中文或英文。中文设置显示中文，其他语言和「自动检测」显示英文。
+- **对话面板**支持拖拽顶边。流式输出时拖拽左右边缘会保持高度。向上滚动可暂停跟随输出，滚回底部后恢复。
+- **模型列表**按名称自然倒序排列。视觉 API 会提示为何 ChatGPT 登录模式不能复用文本配置。
+- **公式排版**在兼容模式网页使用原生 MathML，标准模式网页继续使用 KaTeX HTML。
 
 ## v2.3.2 更新
 
@@ -193,7 +196,7 @@ v2 使用了一个最小化的 Service Worker，仅用于注册右键菜单（Ch
 3. 解压
 4. 打开 Chrome → `chrome://extensions` → 开启右上角**开发者模式**
 5. 点击**加载已解压的扩展程序** → 选择解压出来的文件夹
-6. 点击工具栏 **✦** 图标 → 填入 API Key → **保存设置**
+6. 点击工具栏 **✦**，选择服务商，填入 API Key 或为 **OpenAI（Sign In with ChatGPT）** 完成认证授权，然后点击**保存设置**。
 
 ### 方式二：克隆源码
 
@@ -203,18 +206,22 @@ git clone https://github.com/luzion89/Context-Explain.git
 
 然后按上述步骤加载文件夹。
 
+### Chrome Web Store 提交
+
+维护者可运行 `store-assets/build.sh` 打包，也可[下载 v2.3.3 扩展 ZIP](https://github.com/luzion89/Context-Explain/releases/download/v2.3.3/context-explain-v2.3.3.zip)。在 Chrome Web Store 开发者后台直接上传该 ZIP，无需解压。提交前核对商店介绍和隐私披露是否与安装包中的 ChatGPT 授权和数据处理方式一致。
+
 ---
 
 ## ⚙️ 配置
 
-点击工具栏 **✦** 图标打开设置。设置分为两个标签页：
+点击工具栏 **✦** 图标打开设置。AI 设置包含文字 API、视觉 API 和提示词管理。
 
 ### 文字 API
 
 | 字段 | 说明 |
 |---|---|
-| **Provider（服务商）** | OpenAI / Anthropic / DeepSeek / 自定义 |
-| **API Key** | 在对应服务商控制台获取 |
+| **Provider（服务商）** | OpenAI（API 密钥或使用 ChatGPT 登录）/ Anthropic / DeepSeek / 自定义 |
+| **API Key** | 填写服务商提供的密钥，或在 ChatGPT 登录模式点击**认证授权**。 |
 | **Model（模型）** | 留空使用默认值，或填写任意模型名称 — 点击 **✓** 测试连接 |
 | **Base URL** | 仅自定义 OpenAI 兼容端点需要填写 |
 
@@ -229,7 +236,7 @@ git clone https://github.com/luzion89/Context-Explain.git
 | **API Endpoint** | 任意 OpenAI 兼容的视觉端点（如 `https://api.openai.com/v1`） |
 | **API Key** | 视觉端点的密钥 |
 | **Model** | 如 `gpt-4o`、`claude-3-5-sonnet` 或 OpenRouter 视觉模型 — 点击 **✓** 测试 |
-| **使用文字 API 配置** | 从文字 API 标签页复制端点和密钥 |
+| **使用文字 API 配置** | 在文本服务商提供端点和密钥时可复用。使用 ChatGPT 登录时，请单独配置视觉 API。 |
 
 <figure><img src="assets/screenshots/vision-api.png" style="border:1px solid #e0ddd8;border-radius:8px;width:40%"><figcaption><em>视觉 API 设置 — 为图片分析配置独立的视觉模型</em></figcaption></figure>
 
@@ -278,7 +285,7 @@ git clone https://github.com/luzion89/Context-Explain.git
    ↓
 5. 关闭面板——文字上的琥珀色下划线保留
    ↓
-6. 随时 hover 下划线，瞬间重新加载历史对话
+6. 点击工具栏 **✦**，选择服务商，填入 API Key 或为 **OpenAI（Sign In with ChatGPT）** 完成认证授权，然后点击**保存设置**。
 ```
 
 ### 图片分析

@@ -21,12 +21,15 @@ English · [中文](README_ZH.md) · [Download](https://github.com/luzion89/Cont
 
 ---
 
-**Sign In with ChatGPT (local preview).** In Settings → Text API, select OpenAI (Sign In with ChatGPT), authorize ChatGPT plan access, optionally choose a model from the account’s model list, and save. Independent Vision API settings are required for image requests. The extension requires Chrome 121 or later.
+Requires Chrome 121 or later.
 
-## v2.3.3 preview
+## v2.3.3 updates
 
-- Keep the conversation panel within view when resizing it during a streamed reply. Scroll up to pause automatic following, then return to the bottom to resume. Drag the top edge to change the height.
-- Connect a ChatGPT account for text requests. This integration has been tested with a simulated account. Live authorization in Context Explain is pending.
+- **Sign In with ChatGPT** for text explanations, translation, and follow-up questions. Authorize from the settings page, fetch your account's models, and click the check mark to test the selected model and see latency. Clear authorization with the × beside the username.
+- **Localized authorization callback** shows Chinese for a saved Chinese response language and English for other settings, including Auto.
+- **Conversation panel** can be resized from the top. Dragging a side edge during streaming preserves its height. Scroll up to pause automatic following, then return to the bottom to resume.
+- **Model discovery** lists model IDs in descending natural order. The Vision API explains why ChatGPT sign-in cannot be reused for image requests.
+- **Formula rendering** uses native MathML on pages in quirks mode and KaTeX HTML on standard pages.
 
 ## v2.3.2 updates
 
@@ -191,7 +194,7 @@ v2 uses a minimal service worker solely for registering the right-click context 
 3. Unzip it
 4. Open Chrome → `chrome://extensions` → enable **Developer mode**
 5. Click **Load unpacked** → select the unzipped folder
-6. Click **✦** in your toolbar → enter your API key → **Save Settings**
+6. Click **✦** in your toolbar, choose a provider, then enter its API key or authorize **OpenAI (Sign In with ChatGPT)**. Click **Save Settings**.
 
 ### Option 2 — Clone and run
 
@@ -201,18 +204,22 @@ git clone https://github.com/luzion89/Context-Explain.git
 
 Then load the folder via **Load unpacked** as above.
 
+### Chrome Web Store submission
+
+For maintainers, use the build script at `store-assets/build.sh` or [download the v2.3.3 extension ZIP](https://github.com/luzion89/Context-Explain/releases/download/v2.3.3/context-explain-v2.3.3.zip). Upload the ZIP as-is through the Chrome Web Store Developer Dashboard. Make sure the store description and privacy disclosures reflect the ChatGPT authorization and data handling in the build you submit.
+
 ---
 
 ## ⚙️ Setup
 
-Click the **✦** toolbar icon to open settings. Settings are split into two tabs:
+Click the **✦** toolbar icon to open settings. AI settings include Text API, Vision API, and Prompts.
 
 ### Text API tab
 
 | Field | Notes |
 |---|---|
-| **Provider** | OpenAI / Anthropic / DeepSeek / Custom |
-| **API Key** | Your key from the provider's dashboard |
+| **Provider** | OpenAI (API key or Sign In with ChatGPT) / Anthropic / DeepSeek / Custom |
+| **API Key** | Use the provider’s API key, or use **Authorize** for Sign In with ChatGPT. |
 | **Model** | Leave blank to use the default, or specify any model — click **✓** to test |
 | **Base URL** | Only for custom OpenAI-compatible endpoints |
 
@@ -226,7 +233,7 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
 | **API Endpoint** | Any OpenAI-compatible vision endpoint (e.g. `https://api.openai.com/v1`) |
 | **API Key** | Key for the vision endpoint |
 | **Model** | e.g. `gpt-4o`, `claude-3-5-sonnet`, or any OpenRouter vision model — click **✓** to test |
-| **Use Text API configuration** | Copy endpoint & key from the Text API tab |
+| **Use Text API configuration** | Copy the text endpoint and key when available. With Sign In with ChatGPT, enter your Vision API settings separately. |
 
 <!-- Screenshot: Settings popup — Vision API tab -->
 > 📸 *`assets/screenshots/settings-vision-api.png` — Vision API settings tab*
@@ -274,7 +281,7 @@ Click the **✦** toolbar icon to open settings. Settings are split into two tab
    ↓
 5. Close the panel — amber underline stays on the text
    ↓
-6. Hover the underline anytime to reopen the full conversation instantly
+6. Click **✦** in your toolbar, choose a provider, then enter its API key or authorize **OpenAI (Sign In with ChatGPT)**. Click **Save Settings**.
 ```
 
 ### Image analysis
